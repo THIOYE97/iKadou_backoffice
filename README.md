@@ -26,7 +26,6 @@ npm run dev
 # → http://localhost:5173
 ```
 
-> Le proxy Vite redirige `/api/*` vers `http://localhost:5000`
 
 ## Architecture
 
@@ -63,13 +62,6 @@ src/
 | /support         | Tous                               |
 | /notifications   | Tous                               |
 
-## Phases de développement
-
-- **Phase 1** ✅ — Fondations (Auth, routing, layout, DB, API)
-- **Phase 2** 🔜 — Leads, Clients, Terrains
-- **Phase 3** 🔜 — Visites, Paiements, Documents
-- **Phase 4** 🔜 — Support, Notifications
-- **Phase 5** 🔜 — Dashboard, Reporting, Agents, Users
 # backoffice
 # iKadou_backoffice
-# iKadou_backoffice
+
