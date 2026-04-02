@@ -1,10 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, Save } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Loader2, Save } from 'lucide-react';
 import { paymentsApi, clientsApi, terrainsApi } from '@/Api/resourceApi';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+
+const OPERATORS = [
+  { value: 'orange_money', label: 'Orange Money' },
+  { value: 'wave', label: 'Wave' },
+  { value: 'free_money', label: 'Free Money' },
+  { value: 'moov_money', label: 'Moov Money' },
+  { value: 'mtn_momo', label: 'MTN MoMo' },
+];
 
 export default function PaiementCreatePage() {
   const navigate = useNavigate();
@@ -14,14 +22,16 @@ export default function PaiementCreatePage() {
   const [loadingData, setLoadingData] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [result, setResult] = useState(null);
 
   const [form, setForm] = useState({
     clientId: '',
     terrainId: '',
-    amount: '',
-    currency: 'XOF',
-    paymentMethod: '',
-    transactionRef: '',
+    amountXof: '',
+    providerAction: 'stripe_checkout',
+    currency: 'eur',
+    operator: 'wave',
+    phone: '',
     notes: '',
   });
 
@@ -43,6 +53,11 @@ export default function PaiementCreatePage() {
     loadData();
   }, []);
 
+  const selectedClient = useMemo(
+    () => clients.find((c) => c.id === form.clientId),
+    [clients, form.clientId]
+  );
+
   const updateField = (key, value) => {
     setForm((f) => ({ ...f, [key]: value }));
   };
@@ -51,19 +66,57 @@ export default function PaiementCreatePage() {
     e.preventDefault();
     setSaving(true);
     setError(null);
+    setResult(null);
 
     try {
-      const res = await paymentsApi.create({
+      const payloadBase = {
         clientId: form.clientId,
         terrainId: form.terrainId,
-        amount: Number(form.amount),
-        currency: form.currency,
-        paymentMethod: form.paymentMethod || undefined,
-        transactionRef: form.transactionRef || undefined,
+        amountXof: Number(form.amountXof),
         notes: form.notes || undefined,
-      });
+      };
 
-      navigate(`/paiements/${res?.data?.id || ''}`);
+      let res;
+
+      switch (form.providerAction) {
+        case 'stripe_intent':
+          res = await paymentsApi.createStripeIntent({
+            ...payloadBase,
+            currency: form.currency || 'eur',
+          });
+          break;
+
+        case 'stripe_checkout':
+          res = await paymentsApi.createStripeCheckout({
+            ...payloadBase,
+            currency: form.currency || 'eur',
+          });
+          break;
+
+        case 'danapay_transfer':
+          res = await paymentsApi.createDanaPayTransfer({
+            ...payloadBase,
+            phone: form.phone || selectedClient?.phone || '',
+            operator: form.operator,
+          });
+          break;
+
+        case 'danapay_link':
+          res = await paymentsApi.createDanaPayLink(payloadBase);
+          break;
+
+        default:
+          throw new Error('Action de paiement non supportée');
+      }
+
+      const data = res?.data;
+      setResult(data || null);
+
+      if (data?.paymentId) {
+        navigate(`/paiements/${data.paymentId}`, {
+          state: { creationResult: data },
+        });
+      }
     } catch (err) {
       setError(err?.response?.data?.message || 'Impossible de créer le paiement');
     } finally {
@@ -72,14 +125,16 @@ export default function PaiementCreatePage() {
   };
 
   return (
-    <div className="space-y-5 max-w-3xl">
+    <div className="space-y-5 max-w-4xl">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate('/paiements')}>
           <ArrowLeft size={18} />
         </Button>
         <div>
           <h1 className="font-display text-2xl font-semibold">Nouveau paiement</h1>
-          <p className="text-sm text-muted-foreground">Enregistrer une transaction</p>
+          <p className="text-sm text-muted-foreground">
+            Créer un paiement Stripe ou DanaPay
+          </p>
         </div>
       </div>
 
@@ -87,6 +142,7 @@ export default function PaiementCreatePage() {
         <CardHeader>
           <CardTitle className="text-base">Informations paiement</CardTitle>
         </CardHeader>
+
         <CardContent>
           {loadingData ? (
             <div className="flex items-center justify-center h-40">
@@ -127,43 +183,70 @@ export default function PaiementCreatePage() {
                   </select>
                 </Field>
 
-                <Field label="Montant *">
+                <Field label="Montant (XOF) *">
                   <Input
                     type="number"
                     min="0"
-                    step="0.01"
-                    value={form.amount}
-                    onChange={(e) => updateField('amount', e.target.value)}
+                    step="1"
+                    value={form.amountXof}
+                    onChange={(e) => updateField('amountXof', e.target.value)}
                     required
                   />
                 </Field>
 
-                <Field label="Devise *">
+                <Field label="Action paiement *">
                   <select
                     className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                    value={form.currency}
-                    onChange={(e) => updateField('currency', e.target.value)}
+                    value={form.providerAction}
+                    onChange={(e) => updateField('providerAction', e.target.value)}
                   >
-                    <option value="XOF">XOF</option>
-                    <option value="EUR">EUR</option>
-                    <option value="USD">USD</option>
+                    <option value="stripe_checkout">Stripe Checkout</option>
+                    <option value="stripe_intent">Stripe Payment Intent</option>
+                    <option value="danapay_transfer">DanaPay Transfer</option>
+                    <option value="danapay_link">DanaPay Payment Link</option>
                   </select>
                 </Field>
 
-                <Field label="Méthode">
-                  <Input
-                    value={form.paymentMethod}
-                    onChange={(e) => updateField('paymentMethod', e.target.value)}
-                    placeholder="Virement, cash, mobile money…"
-                  />
-                </Field>
+                {(form.providerAction === 'stripe_checkout' || form.providerAction === 'stripe_intent') && (
+                  <Field label="Devise cible Stripe">
+                    <select
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      value={form.currency}
+                      onChange={(e) => updateField('currency', e.target.value)}
+                    >
+                      <option value="eur">EUR</option>
+                      <option value="usd">USD</option>
+                    </select>
+                  </Field>
+                )}
 
-                <Field label="Référence transaction">
-                  <Input
-                    value={form.transactionRef}
-                    onChange={(e) => updateField('transactionRef', e.target.value)}
-                  />
-                </Field>
+                {form.providerAction === 'danapay_transfer' && (
+                  <>
+                    <Field label="Opérateur *">
+                      <select
+                        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                        value={form.operator}
+                        onChange={(e) => updateField('operator', e.target.value)}
+                        required
+                      >
+                        {OPERATORS.map((op) => (
+                          <option key={op.value} value={op.value}>
+                            {op.label}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+
+                    <Field label="Téléphone client *">
+                      <Input
+                        value={form.phone}
+                        onChange={(e) => updateField('phone', e.target.value)}
+                        placeholder={selectedClient?.phone || 'Numéro mobile money'}
+                        required
+                      />
+                    </Field>
+                  </>
+                )}
               </div>
 
               <Field label="Notes">
@@ -176,13 +259,31 @@ export default function PaiementCreatePage() {
 
               {error && <p className="text-sm text-destructive">{error}</p>}
 
+              {result && (
+                <div className="rounded-md border bg-muted/30 p-4 text-sm space-y-2">
+                  <p className="font-medium">Paiement créé avec succès</p>
+                  <p>Réf. : {result.paymentRef || '—'}</p>
+                  {result.paymentId && <p>ID : {result.paymentId}</p>}
+                  {result.checkoutUrl && (
+                    <a
+                      href={result.checkoutUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 text-primary hover:underline"
+                    >
+                      Ouvrir le lien de paiement <ExternalLink size={14} />
+                    </a>
+                  )}
+                </div>
+              )}
+
               <div className="flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => navigate('/paiements')}>
                   Annuler
                 </Button>
                 <Button type="submit" disabled={saving}>
                   {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                  Enregistrer
+                  Créer le paiement
                 </Button>
               </div>
             </form>

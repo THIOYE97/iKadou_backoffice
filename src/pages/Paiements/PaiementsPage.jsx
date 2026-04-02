@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X } from 'lucide-react';
+import { Search, X, Plus } from 'lucide-react';
 import { paymentsApi } from '@/Api/resourceApi';
 import DataTable from '@/components/custome/DataTable';
 import Pagination from '@/components/custome/Pagination';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PAYMENT_STATUS } from '@/Util/statusConfig';
 import { readableDate } from '@/Util/readableDate';
+import PaiementFormModal from './PaiementFormModal';
 
 const fmt = (amount, currency) =>
   new Intl.NumberFormat('fr-FR', {
@@ -16,6 +17,27 @@ const fmt = (amount, currency) =>
     currency: currency || 'XOF',
     maximumFractionDigits: 0,
   }).format(Number(amount || 0));
+
+const PROVIDER_LABELS = {
+  stripe: 'Stripe',
+  danapay: 'DanaPay',
+  manual: 'Manuel',
+  bank_transfer: 'Virement',
+};
+
+const METHOD_LABELS = {
+  card: 'Carte',
+  sepa_debit: 'SEPA',
+  mobile_money: 'Mobile Money',
+  wave: 'Wave',
+  orange_money: 'Orange Money',
+  free_money: 'Free Money',
+  moov_money: 'Moov Money',
+  bank_transfer: 'Virement',
+  cash: 'Cash',
+  other: 'Autre',
+  mtn_momo: 'MTN MoMo',
+};
 
 const COLUMNS = [
   {
@@ -29,6 +51,16 @@ const COLUMNS = [
     key: 'amount',
     label: 'Montant',
     render: (v, row) => <span className="font-semibold">{fmt(v, row.currency)}</span>,
+  },
+  {
+    key: 'provider',
+    label: 'Provider',
+    render: (v) => PROVIDER_LABELS[v] || v || '—',
+  },
+  {
+    key: 'method_type',
+    label: 'Méthode',
+    render: (v, row) => METHOD_LABELS[v] || row.payment_method || v || '—',
   },
   {
     key: 'status',
@@ -48,10 +80,14 @@ export default function PaiementsPage() {
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showForm, setShowForm] = useState(false);
 
   const [filters, setFilters] = useState({
     search: '',
     status: '',
+    provider: '',
+    from_date: '',
+    to_date: '',
     page: 1,
     limit: 20,
   });
@@ -59,15 +95,14 @@ export default function PaiementsPage() {
   const fetchPayments = useCallback(async () => {
     setLoading(true);
     setError(null);
+
     try {
-      const params = Object.fromEntries(
-        Object.entries(filters).filter(([, v]) => v !== '')
-      );
+      const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== ''));
       const res = await paymentsApi.list(params);
-      setData(res.data);
-      setMeta(res.meta);
-    } catch {
-      setError('Impossible de charger les paiements');
+      setData(res?.data || []);
+      setMeta(res?.meta || null);
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Impossible de charger les paiements');
     } finally {
       setLoading(false);
     }
@@ -81,19 +116,28 @@ export default function PaiementsPage() {
     setFilters({
       search: '',
       status: '',
+      provider: '',
+      from_date: '',
+      to_date: '',
       page: 1,
       limit: 20,
     });
 
-  const hasFilters = filters.search || filters.status;
+  const hasFilters = filters.search || filters.status || filters.provider || filters.from_date || filters.to_date;
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="font-display text-2xl font-semibold">Paiements</h1>
-        <p className="text-muted-foreground text-sm mt-0.5">
-          {meta ? `${meta.total} transaction${meta.total > 1 ? 's' : ''}` : 'Chargement…'}
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-semibold">Paiements</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">
+            {meta ? `${meta.total} transaction${meta.total > 1 ? 's' : ''}` : 'Chargement…'}
+          </p>
+        </div>
+
+        <Button onClick={() => setShowForm(true)}>
+          <Plus size={16} /> Nouveau paiement
+        </Button>
       </div>
 
       <div className="flex flex-wrap gap-3 items-center">
@@ -118,6 +162,32 @@ export default function PaiementsPage() {
           ))}
         </select>
 
+        <select
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          value={filters.provider}
+          onChange={(e) => setFilters((f) => ({ ...f, provider: e.target.value, page: 1 }))}
+        >
+          <option value="">Tous les providers</option>
+          <option value="stripe">Stripe</option>
+          <option value="danapay">DanaPay</option>
+          <option value="manual">Manuel</option>
+          <option value="bank_transfer">Virement</option>
+        </select>
+
+        <Input
+          type="date"
+          className="w-[170px]"
+          value={filters.from_date}
+          onChange={(e) => setFilters((f) => ({ ...f, from_date: e.target.value, page: 1 }))}
+        />
+
+        <Input
+          type="date"
+          className="w-[170px]"
+          value={filters.to_date}
+          onChange={(e) => setFilters((f) => ({ ...f, to_date: e.target.value, page: 1 }))}
+        />
+
         {hasFilters && (
           <Button variant="ghost" size="sm" onClick={resetFilters}>
             <X size={14} /> Réinitialiser
@@ -134,6 +204,16 @@ export default function PaiementsPage() {
       />
 
       <Pagination meta={meta} onPageChange={(p) => setFilters((f) => ({ ...f, page: p }))} />
+
+      {showForm && (
+        <PaiementFormModal
+          onClose={() => setShowForm(false)}
+          onSuccess={() => {
+            setShowForm(false);
+            fetchPayments();
+          }}
+        />
+      )}
     </div>
   );
 }

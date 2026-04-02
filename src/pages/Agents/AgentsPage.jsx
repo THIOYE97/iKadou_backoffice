@@ -4,11 +4,11 @@ import { Plus, Search, X } from 'lucide-react';
 import { agentsApi, zonesApi } from '@/Api/resourceApi';
 import DataTable from '@/components/custome/DataTable';
 import Pagination from '@/components/custome/Pagination';
-import StatusBadge from '@/components/ui/StatusBadge';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { USER_STATUS } from '@/Util/statusConfig';
 import { readableDate } from '@/Util/readableDate';
+import AgentFormModal from './AgentFormModal';
 
 const COLUMNS = [
   {
@@ -16,17 +16,31 @@ const COLUMNS = [
     label: 'Agent',
     render: (_, row) => (
       <div>
-        <p className="font-medium text-sm">{row.first_name} {row.last_name}</p>
+        <p className="text-sm font-medium">
+          {row.first_name} {row.last_name}
+        </p>
         <p className="text-xs text-muted-foreground">{row.email || '—'}</p>
       </div>
     ),
   },
   { key: 'phone', label: 'Téléphone', render: (v) => v || '—' },
   { key: 'zone_name', label: 'Zone', render: (v) => <span className="text-sm">{v || '—'}</span> },
-  { key: 'status', label: 'Statut', render: (v) => <StatusBadge map={USER_STATUS} value={v} /> },
+  {
+    key: 'status',
+    label: 'Statut',
+    render: (v) => (
+      <Badge variant={v === 'active' ? 'success' : 'secondary'}>
+        {v === 'active' ? 'Actif' : 'Inactif'}
+      </Badge>
+    ),
+  },
   { key: 'leads_count', label: 'Leads actifs', render: (v) => <span className="font-semibold">{v ?? '—'}</span> },
   { key: 'active_visits', label: 'Visites actives', render: (v) => <span className="font-semibold">{v ?? '—'}</span> },
-  { key: 'created_at', label: 'Créé le', render: (v) => <span className="text-xs text-muted-foreground">{readableDate(v)}</span> },
+  {
+    key: 'created_at',
+    label: 'Créé le',
+    render: (v) => <span className="text-xs text-muted-foreground">{readableDate(v)}</span>,
+  },
 ];
 
 export default function AgentsPage() {
@@ -36,6 +50,7 @@ export default function AgentsPage() {
   const [zones, setZones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showForm, setShowForm] = useState(false);
 
   const [filters, setFilters] = useState({
     search: '',
@@ -46,21 +61,35 @@ export default function AgentsPage() {
   });
 
   useEffect(() => {
-    zonesApi.list().then((r) => setZones(r.data)).catch(() => {});
+    zonesApi
+      .list()
+      .then((result) => {
+        const zoneItems = Array.isArray(result) ? result : result?.data || [];
+        setZones(zoneItems);
+      })
+      .catch(() => setZones([]));
   }, []);
 
   const fetchAgents = useCallback(async () => {
     setLoading(true);
     setError(null);
+
     try {
       const params = Object.fromEntries(
         Object.entries(filters).filter(([, v]) => v !== '')
       );
-      const res = await agentsApi.list(params);
-      setData(res.data);
-      setMeta(res.meta);
+
+      const result = await agentsApi.list(params);
+
+      const items = Array.isArray(result) ? result : result?.data || [];
+      const pagination = result?.meta || null;
+
+      setData(items);
+      setMeta(pagination);
     } catch {
       setError('Impossible de charger les agents');
+      setData([]);
+      setMeta(null);
     } finally {
       setLoading(false);
     }
@@ -70,10 +99,17 @@ export default function AgentsPage() {
     fetchAgents();
   }, [fetchAgents]);
 
-  const resetFilters = () =>
-    setFilters({ search: '', zone_id: '', status: '', page: 1, limit: 20 });
+  const resetFilters = () => {
+    setFilters({
+      search: '',
+      zone_id: '',
+      status: '',
+      page: 1,
+      limit: 20,
+    });
+  };
 
-  const hasFilters = filters.search || filters.zone_id || filters.status;
+  const hasFilters = Boolean(filters.search || filters.zone_id || filters.status);
 
   return (
     <div className="space-y-5">
@@ -84,8 +120,10 @@ export default function AgentsPage() {
             {meta ? `${meta.total} agent${meta.total > 1 ? 's' : ''}` : 'Chargement…'}
           </p>
         </div>
-        <Button onClick={() => navigate('/agents/new')}>
-          <Plus size={16} /> Nouvel agent
+
+        <Button type="button" onClick={() => setShowForm(true)}>
+          <Plus size={16} className="mr-2" />
+          Nouvel agent
         </Button>
       </div>
 
@@ -122,8 +160,9 @@ export default function AgentsPage() {
         </select>
 
         {hasFilters && (
-          <Button variant="ghost" size="sm" onClick={resetFilters}>
-            <X size={14} /> Réinitialiser
+          <Button type="button" variant="ghost" size="sm" onClick={resetFilters}>
+            <X size={14} className="mr-2" />
+            Réinitialiser
           </Button>
         )}
       </div>
@@ -133,10 +172,37 @@ export default function AgentsPage() {
         data={data}
         loading={loading}
         error={error}
-        onRowClick={(row) => navigate(`/agents/${row.id}`)}
+        onRowClick={(row) => {
+          if (row?.id) {
+            navigate(`/agents/${row.id}`);
+          }
+        }}
       />
 
-      <Pagination meta={meta} onPageChange={(p) => setFilters((f) => ({ ...f, page: p }))} />
+      <Pagination
+        meta={meta}
+        onPageChange={(p) => setFilters((f) => ({ ...f, page: p }))}
+      />
+
+      {showForm && (
+  <AgentFormModal
+    zones={zones}
+    onClose={() => setShowForm(false)}
+    onSuccess={(createdAgent) => {
+      const createdId =
+        createdAgent?.id ||
+        createdAgent?.agent?.id ||
+        createdAgent?.data?.id;
+
+      setShowForm(false);
+      fetchAgents();
+
+      if (createdId) {
+        navigate(`/agents/${createdId}`);
+      }
+    }}
+  />
+)}
     </div>
   );
 }

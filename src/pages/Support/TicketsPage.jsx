@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TICKET_STATUS, TICKET_PRIORITY } from '@/Util/statusConfig';
 import { readableDate } from '@/Util/readableDate';
+import TicketFormModal from './TicketFormModal';
 
 const COLUMNS = [
   {
@@ -34,6 +35,7 @@ export default function TicketsPage() {
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showForm, setShowForm] = useState(false);
 
   const [filters, setFilters] = useState({
     search: '',
@@ -47,9 +49,7 @@ export default function TicketsPage() {
     setLoading(true);
     setError(null);
     try {
-      const params = Object.fromEntries(
-        Object.entries(filters).filter(([, v]) => v !== '')
-      );
+      const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== ''));
       const res = await ticketsApi.list(params);
       setData(res.data);
       setMeta(res.meta);
@@ -84,7 +84,7 @@ export default function TicketsPage() {
             {meta ? `${meta.total} ticket${meta.total > 1 ? 's' : ''}` : 'Chargement…'}
           </p>
         </div>
-        <Button onClick={() => navigate('/support/new')}>
+        <Button onClick={() => setShowForm(true)}>
           <Plus size={16} /> Nouveau ticket
         </Button>
       </div>
@@ -138,6 +138,16 @@ export default function TicketsPage() {
       />
 
       <Pagination meta={meta} onPageChange={(p) => setFilters((f) => ({ ...f, page: p }))} />
+
+      {showForm && (
+        <TicketFormModal
+          onClose={() => setShowForm(false)}
+          onSuccess={() => {
+            setShowForm(false);
+            fetchTickets();
+          }}
+        />
+      )}
     </div>
   );
 }

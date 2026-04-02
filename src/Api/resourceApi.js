@@ -83,10 +83,26 @@ export const ticketsApi = {
 // ─── PAYMENTS ─────────────────────────────────────────────
 
 export const paymentsApi = {
-  list: (params) => api.get('/payments', { params }).then(r => r.data),
-  get: (id) => api.get(`/payments/${id}`).then(r => r.data),
-  create: (data) => api.post('/payments', data).then(r => r.data),
-  updateStatus: (id, data) => api.patch(`/payments/${id}/status`, data).then(r => r.data),
+  list: (params) => api.get('/payments', { params }).then((r) => r.data),
+  get: (id) => api.get(`/payments/${id}`).then((r) => r.data),
+
+  createStripeIntent: (payload) =>
+    api.post('/payments/stripe/intent', payload).then((r) => r.data),
+
+  createStripeCheckout: (payload) =>
+    api.post('/payments/stripe/checkout', payload).then((r) => r.data),
+
+  createDanaPayTransfer: (payload) =>
+    api.post('/payments/danapay/transfer', payload).then((r) => r.data),
+
+  createDanaPayLink: (payload) =>
+    api.post('/payments/danapay/link', payload).then((r) => r.data),
+
+  sync: (id) =>
+    api.post(`/payments/${id}/sync`).then((r) => r.data),
+
+  getOperators: (countryCode) =>
+    api.get(`/payments/operators/${countryCode}`).then((r) => r.data),
 };
 
 // ─── NOTIFICATIONS ────────────────────────────────────────
