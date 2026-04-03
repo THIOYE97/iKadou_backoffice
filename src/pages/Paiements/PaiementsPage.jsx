@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X, Plus, RefreshCw, CreditCard, Smartphone, Calendar, TrendingUp, AlertCircle, CheckCircle, Clock, Loader2 } from 'lucide-react';
+import {
+  Search, X, Plus, RefreshCw, CreditCard, Smartphone,
+  Calendar, TrendingUp, CheckCircle, Clock, AlertCircle, Loader2,
+} from 'lucide-react';
 import { paymentApi } from '@/Api/paymentApi';
 import DataTable from '@/components/custome/DataTable';
 import Pagination from '@/components/custome/Pagination';
@@ -12,8 +15,8 @@ import { readableDate } from '@/Util/readableDate';
 import CreatePaymentModal from './CreatePaymentModal';
 import InstallmentPlanModal from './InstallmentPlanModal';
 
-const fmt = (amount, currency = 'XOF') =>
-  new Intl.NumberFormat('fr-FR', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
+const fmt = (v, c = 'XOF') =>
+  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: c, maximumFractionDigits: 0 }).format(v || 0);
 
 const PROVIDER_BADGES = {
   stripe:        { label: '💳 Stripe',   color: 'bg-blue-100 text-blue-800' },
@@ -40,7 +43,8 @@ function SyncBtn({ id, onSynced }) {
     catch {} finally { setLoading(false); }
   };
   return (
-    <Button size="sm" variant="ghost" onClick={handle} disabled={loading} className="h-7 px-2" title="Synchroniser avec le provider">
+    <Button size="sm" variant="ghost" onClick={handle} disabled={loading}
+      className="h-7 px-2" title="Synchroniser avec le provider">
       <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
     </Button>
   );
@@ -53,7 +57,7 @@ const COLUMNS = [
     render: (v, row) => (
       <div className="min-w-0">
         <p className="text-sm font-medium truncate">{v || '—'}</p>
-        <p className="text-xs text-muted-foreground font-mono">{row.terrain_ref || '—'}</p>
+        <p className="text-xs text-muted-foreground font-mono truncate">{row.terrain_ref || '—'}</p>
       </div>
     )},
   { key: 'amount', label: 'Montant',
@@ -74,7 +78,7 @@ const COLUMNS = [
       return (
         <div className="flex items-center gap-1.5">
           {icon}
-          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${badge.color}`}>
+          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap ${badge.color}`}>
             {badge.label}
           </span>
         </div>
@@ -84,7 +88,7 @@ const COLUMNS = [
     render: (v, row) => (
       <div className="flex items-center gap-1">
         <StatusBadge map={PAYMENT_STATUS} value={v} />
-        {(row.provider === 'stripe' || row.provider === 'danapay') && v === 'pending' && (
+        {['stripe','danapay'].includes(row.provider) && v === 'pending' && (
           <SyncBtn id={row.id} />
         )}
       </div>
@@ -95,14 +99,20 @@ const COLUMNS = [
 
 export default function PaiementsPage() {
   const navigate = useNavigate();
-  const [data, setData]             = useState([]);
-  const [meta, setMeta]             = useState(null);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState(null);
+  const [data, setData]           = useState([]);
+  const [meta, setMeta]           = useState(null);
+  const [stats, setStats]         = useState(null);
+  const [loading, setLoading]     = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [error, setError]         = useState(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [showPlan, setShowPlan]     = useState(false);
-  const [filters, setFilters]       = useState({ search: '', status: '', provider: '', page: 1, limit: 20 });
+  const [showPlan, setShowPlan]   = useState(false);
+  const [filters, setFilters]     = useState({
+    search: '', status: '', provider: '', from_date: '', to_date: '',
+    page: 1, limit: 20,
+  });
 
+  // Fetch list
   const fetch = useCallback(async () => {
     setLoading(true); setError(null);
     try {
@@ -113,18 +123,59 @@ export default function PaiementsPage() {
     finally { setLoading(false); }
   }, [filters]);
 
+  // Fetch stats (independent of pagination)
+  const fetchStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const params = Object.fromEntries(
+        Object.entries({
+          provider:  filters.provider,
+          from_date: filters.from_date,
+          to_date:   filters.to_date,
+        }).filter(([, v]) => v !== '')
+      );
+      const r = await paymentApi.stats(params);
+      setStats(r.data);
+    } catch {} finally { setStatsLoading(false); }
+  }, [filters.provider, filters.from_date, filters.to_date]);
+
   useEffect(() => { fetch(); }, [fetch]);
+  useEffect(() => { fetchStats(); }, [fetchStats]);
 
-  const hasFilters = filters.search || filters.status || filters.provider;
+  const hasFilters = filters.search || filters.status || filters.provider
+    || filters.from_date || filters.to_date;
 
-  // Page-level stats
-  const stats = data.reduce((acc, p) => {
-    if (p.status === 'confirmed') acc.confirmedAmount += Number(p.amount);
-    if (p.status === 'pending')   acc.pendingAmount   += Number(p.amount);
-    if (p.provider === 'stripe')  acc.stripeCount++;
-    if (p.provider === 'danapay') acc.danaCount++;
-    return acc;
-  }, { confirmedAmount: 0, pendingAmount: 0, stripeCount: 0, danaCount: 0 });
+  const resetFilters = () => setFilters({
+    search: '', status: '', provider: '', from_date: '', to_date: '', page: 1, limit: 20,
+  });
+
+  // KPI cards from real stats endpoint
+  const KPI_CARDS = stats ? [
+    {
+      label: 'Total confirmé',
+      value: fmt(stats.global?.confirmed_amount),
+      sub: `${stats.global?.confirmed_count || 0} transactions`,
+      icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50',
+    },
+    {
+      label: 'En attente',
+      value: fmt(stats.global?.pending_amount),
+      sub: `${stats.global?.pending_count || 0} transactions`,
+      icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50',
+    },
+    {
+      label: '💳 Stripe',
+      value: `${stats.global?.stripe_count || 0}`,
+      sub: 'transactions',
+      icon: CreditCard, color: 'text-blue-600', bg: 'bg-blue-50',
+    },
+    {
+      label: '📱 DanaPay',
+      value: `${stats.global?.danapay_count || 0}`,
+      sub: 'transactions',
+      icon: Smartphone, color: 'text-orange-600', bg: 'bg-orange-50',
+    },
+  ] : [];
 
   return (
     <div className="space-y-5">
@@ -147,37 +198,36 @@ export default function PaiementsPage() {
         </div>
       </div>
 
-      {/* ── KPI cards ─── */}
-      {data.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            { label: 'Confirmés', value: fmt(stats.confirmedAmount), icon: CheckCircle, color: 'text-emerald-600', iconBg: 'bg-emerald-100' },
-            { label: 'En attente', value: fmt(stats.pendingAmount),  icon: Clock,       color: 'text-amber-600',  iconBg: 'bg-amber-100' },
-            { label: '💳 Stripe',  value: `${stats.stripeCount} tx`, icon: CreditCard,  color: 'text-blue-600',   iconBg: 'bg-blue-100' },
-            { label: '📱 DanaPay', value: `${stats.danaCount} tx`,   icon: Smartphone,  color: 'text-orange-600', iconBg: 'bg-orange-100' },
-          ].map(k => {
-            const Icon = k.icon;
-            return (
-              <div key={k.label} className="bg-card rounded-xl border px-4 py-3 flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-lg ${k.iconBg} flex items-center justify-center flex-shrink-0`}>
-                  <Icon size={16} className={k.color} />
+      {/* ── KPI cards — real data from stats endpoint ─── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {statsLoading
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-card rounded-xl border h-20 animate-pulse" />
+            ))
+          : KPI_CARDS.map(k => {
+              const Icon = k.icon;
+              return (
+                <div key={k.label} className="bg-card rounded-xl border px-4 py-3 flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-lg ${k.bg} flex items-center justify-center flex-shrink-0`}>
+                    <Icon size={16} className={k.color} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">{k.label}</p>
+                    <p className={`font-display font-bold text-sm ${k.color} truncate`}>{k.value}</p>
+                    <p className="text-[10px] text-muted-foreground">{k.sub}</p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">{k.label}</p>
-                  <p className={`text-sm font-display font-bold ${k.color} truncate`}>{k.value}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })
+        }
+      </div>
 
       {/* ── Filters ─── */}
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Référence paiement…"
+            placeholder="Réf., client, terrain…"
             className="pl-8 w-52"
             value={filters.search}
             onChange={e => setFilters(f => ({ ...f, search: e.target.value, page: 1 }))}
@@ -205,9 +255,27 @@ export default function PaiementsPage() {
           <option value="bank_transfer">🏦 Virement</option>
         </select>
 
+        {/* Date range */}
+        <div className="flex items-center gap-1.5">
+          <Input
+            type="date"
+            className="h-9 w-36 text-xs"
+            value={filters.from_date}
+            onChange={e => setFilters(f => ({ ...f, from_date: e.target.value, page: 1 }))}
+            title="Date de début"
+          />
+          <span className="text-muted-foreground text-xs">→</span>
+          <Input
+            type="date"
+            className="h-9 w-36 text-xs"
+            value={filters.to_date}
+            onChange={e => setFilters(f => ({ ...f, to_date: e.target.value, page: 1 }))}
+            title="Date de fin"
+          />
+        </div>
+
         {hasFilters && (
-          <Button variant="ghost" size="sm"
-            onClick={() => setFilters({ search: '', status: '', provider: '', page: 1, limit: 20 })}>
+          <Button variant="ghost" size="sm" onClick={resetFilters}>
             <X size={14} /> Reset
           </Button>
         )}
@@ -227,13 +295,13 @@ export default function PaiementsPage() {
       {showCreate && (
         <CreatePaymentModal
           onClose={() => setShowCreate(false)}
-          onSuccess={() => { setShowCreate(false); fetch(); }}
+          onSuccess={() => { setShowCreate(false); fetch(); fetchStats(); }}
         />
       )}
       {showPlan && (
         <InstallmentPlanModal
           onClose={() => setShowPlan(false)}
-          onSuccess={() => { setShowPlan(false); fetch(); }}
+          onSuccess={() => { setShowPlan(false); fetch(); fetchStats(); }}
         />
       )}
     </div>
