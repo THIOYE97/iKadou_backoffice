@@ -1,37 +1,40 @@
 import { useState } from 'react';
-import { X, Loader2, AlertTriangle } from 'lucide-react';
+import { X, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { paymentApi } from '@/Api/paymentApi';
 import { Button } from '@/components/ui/button';
 import { PAYMENT_STATUS } from '@/Util/statusConfig';
 
-// Allowed transitions per status
 const TRANSITIONS = {
-  pending:   ['confirmed', 'failed', 'cancelled'],
+  pending: ['confirmed', 'failed', 'cancelled'],
   confirmed: ['refunded'],
-  failed:    ['pending'],
-  partial:   ['confirmed', 'failed', 'cancelled'],
-  refunded:  [],
+  failed: ['pending'],
+  partial: ['confirmed', 'failed', 'cancelled'],
+  refunded: [],
   cancelled: [],
 };
 
-// Statuses that require a comment
 const NEEDS_COMMENT = ['failed', 'cancelled', 'refunded'];
 
 export default function PaymentStatusModal({ payment, onClose, onSuccess }) {
-  const [status, setStatus]   = useState('');
+  const [status, setStatus] = useState('');
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState(null);
+  const [error, setError] = useState(null);
 
   const allowed = TRANSITIONS[payment.status] || [];
 
   const handleSubmit = async () => {
-    if (!status) { setError('Sélectionnez un nouveau statut'); return; }
+    if (!status) {
+      setError('Sélectionnez un nouveau statut');
+      return;
+    }
     if (NEEDS_COMMENT.includes(status) && !comment.trim()) {
       setError('Un commentaire est requis pour ce statut');
       return;
     }
-    setLoading(true); setError(null);
+
+    setLoading(true);
+    setError(null);
     try {
       await paymentApi.updateStatus(payment.id, { status, comment: comment || undefined });
       onSuccess(status);
@@ -42,51 +45,86 @@ export default function PaymentStatusModal({ payment, onClose, onSuccess }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-card rounded-xl shadow-xl w-full max-w-sm animate-fade-in">
-        <div className="flex items-center justify-between p-5 border-b">
-          <h2 className="font-display font-semibold">Changer le statut</h2>
-          <button onClick={onClose}><X size={18} className="text-muted-foreground" /></button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px]">
+      <div className="w-full max-w-md rounded-[30px] border bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--surface-1)))] shadow-[var(--shadow-lg)] animate-fade-in">
+        <div className="flex items-center justify-between border-b p-5">
+          <div>
+            <h2 className="font-display text-lg font-semibold tracking-tight">
+              Changer le statut
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Mets à jour le cycle du paiement
+            </p>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="rounded-xl p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        <div className="p-5 space-y-4">
-          {error && (
-            <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
-              <AlertTriangle size={14} /> {error}
+        <div className="space-y-4 p-5">
+          {error ? (
+            <div className="flex items-center gap-2 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <AlertTriangle size={14} />
+              {error}
             </div>
-          )}
+          ) : null}
 
-          {/* Current status */}
-          <div className="flex items-center gap-2 text-sm bg-muted/50 rounded-lg px-3 py-2">
+          <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-3 py-2 text-sm">
             <span className="text-muted-foreground">Statut actuel :</span>
-            <span className="font-semibold">{PAYMENT_STATUS[payment.status]?.label || payment.status}</span>
+            <span className="font-semibold">
+              {PAYMENT_STATUS[payment.status]?.label || payment.status}
+            </span>
           </div>
 
           {!allowed.length ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
+            <div className="rounded-2xl border border-dashed bg-muted/20 px-4 py-5 text-center text-sm text-muted-foreground">
               Aucune transition possible depuis le statut <strong>{payment.status}</strong>.
-            </p>
+            </div>
           ) : (
             <>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Nouveau statut</label>
-                {allowed.map(s => {
-                  const cfg = PAYMENT_STATUS[s] || { label: s, variant: 'outline' };
+
+                {allowed.map((s) => {
+                  const cfg = PAYMENT_STATUS[s] || { label: s };
+
                   return (
-                    <label key={s} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                      status === s ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40'
-                    }`}>
+                    <label
+                      key={s}
+                      className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-4 transition ${
+                        status === s
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:bg-muted/40'
+                      }`}
+                    >
                       <input
-                        type="radio" name="status" value={s}
+                        type="radio"
+                        name="status"
+                        value={s}
                         checked={status === s}
-                        onChange={() => { setStatus(s); setError(null); }}
+                        onChange={() => {
+                          setStatus(s);
+                          setError(null);
+                        }}
                         className="accent-primary"
                       />
-                      <div>
-                        <span className="text-sm font-medium">{cfg.label}</span>
-                        {NEEDS_COMMENT.includes(s) && (
-                          <span className="text-xs text-muted-foreground ml-2">(commentaire requis)</span>
-                        )}
+
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                          <RefreshCw className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium">{cfg.label}</span>
+                          {NEEDS_COMMENT.includes(s) ? (
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              (commentaire requis)
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                     </label>
                   );
@@ -98,23 +136,26 @@ export default function PaymentStatusModal({ payment, onClose, onSuccess }) {
                   Commentaire {NEEDS_COMMENT.includes(status) ? '*' : '(optionnel)'}
                 </label>
                 <textarea
-                  className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:ring-1 focus:ring-ring"
+                  className="min-h-[90px] w-full resize-none rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
                   placeholder="Motif, référence, observations…"
                   value={comment}
-                  onChange={e => setComment(e.target.value)}
+                  onChange={(e) => setComment(e.target.value)}
                 />
               </div>
             </>
           )}
 
           <div className="flex justify-end gap-3 pt-1">
-            <Button variant="outline" onClick={onClose}>Annuler</Button>
-            {!!allowed.length && (
-              <Button onClick={handleSubmit} disabled={loading || !status}>
-                {loading && <Loader2 size={14} className="animate-spin" />}
+            <Button variant="outline" className="rounded-2xl" onClick={onClose}>
+              Annuler
+            </Button>
+
+            {allowed.length ? (
+              <Button className="rounded-2xl" onClick={handleSubmit} disabled={loading || !status}>
+                {loading ? <Loader2 size={14} className="animate-spin" /> : null}
                 Enregistrer
               </Button>
-            )}
+            ) : null}
           </div>
         </div>
       </div>

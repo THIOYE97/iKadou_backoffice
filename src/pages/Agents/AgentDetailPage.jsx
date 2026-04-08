@@ -1,6 +1,19 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Loader2, Plus, Trash2, Save, MapPin, Mail, Phone, User } from 'lucide-react';
+import {
+  ArrowLeft,
+  Loader2,
+  Plus,
+  Trash2,
+  Save,
+  MapPin,
+  Mail,
+  Phone,
+  User,
+  Sparkles,
+  Activity,
+  ShieldCheck,
+} from 'lucide-react';
 import { agentsApi, zonesApi } from '@/Api/resourceApi';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,46 +51,46 @@ export default function AgentDetailPage() {
     bio: '',
   });
 
- const loadAgent = useCallback(async () => {
-  if (invalidAgentId) {
-    setAgent(null);
-    return;
-  }
-
-  try {
-    const result = await agentsApi.get(id);
-    const data = result?.data || result || null;
-    setAgent(data);
-
-    if (data) {
-      setForm({
-        firstName: data.first_name || '',
-        lastName: data.last_name || '',
-        email: data.email || '',
-        phone: data.phone || '',
-        zoneId: data.zone_id || '',
-        status: data.status || 'active',
-        bio: data.bio || '',
-      });
+  const loadAgent = useCallback(async () => {
+    if (invalidAgentId) {
+      setAgent(null);
+      return;
     }
-  } catch {
-    setAgent(null);
-  }
-}, [id, invalidAgentId]);
 
-const loadPerformance = useCallback(async () => {
-  if (invalidAgentId) {
-    setPerformance(null);
-    return;
-  }
+    try {
+      const result = await agentsApi.get(id);
+      const data = result?.data || result || null;
+      setAgent(data);
 
-  try {
-    const result = await agentsApi.getPerformance(id, { period: perfPeriod });
-    setPerformance(result?.data || result || null);
-  } catch {
-    setPerformance(null);
-  }
-}, [id, perfPeriod, invalidAgentId]);
+      if (data) {
+        setForm({
+          firstName: data.first_name || '',
+          lastName: data.last_name || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          zoneId: data.zone_id || '',
+          status: data.status || 'active',
+          bio: data.bio || '',
+        });
+      }
+    } catch {
+      setAgent(null);
+    }
+  }, [id, invalidAgentId]);
+
+  const loadPerformance = useCallback(async () => {
+    if (invalidAgentId) {
+      setPerformance(null);
+      return;
+    }
+
+    try {
+      const result = await agentsApi.getPerformance(id, { period: perfPeriod });
+      setPerformance(result?.data || result || null);
+    } catch {
+      setPerformance(null);
+    }
+  }, [id, perfPeriod, invalidAgentId]);
 
   useEffect(() => {
     const init = async () => {
@@ -108,9 +121,7 @@ const loadPerformance = useCallback(async () => {
   }, [loadAgent, invalidAgentId]);
 
   useEffect(() => {
-    if (!invalidAgentId) {
-      loadPerformance();
-    }
+    if (!invalidAgentId) loadPerformance();
   }, [loadPerformance, invalidAgentId]);
 
   const updateField = (key, value) => {
@@ -119,7 +130,6 @@ const loadPerformance = useCallback(async () => {
 
   const handleSave = async (e) => {
     e.preventDefault();
-
     if (invalidAgentId) return;
 
     setSaving(true);
@@ -168,16 +178,16 @@ const loadPerformance = useCallback(async () => {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 size={32} className="animate-spin text-primary" />
+      <div className="flex h-72 items-center justify-center">
+        <Loader2 size={28} className="animate-spin text-primary" />
       </div>
     );
   }
 
   if (invalidAgentId) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center space-y-3">
+      <div className="flex h-72 items-center justify-center">
+        <div className="space-y-3 text-center">
           <p className="text-lg text-muted-foreground">Identifiant agent invalide.</p>
           <Button onClick={() => navigate('/agents')}>Retour à la liste</Button>
         </div>
@@ -187,44 +197,53 @@ const loadPerformance = useCallback(async () => {
 
   if (!agent) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex h-72 items-center justify-center">
         <p className="text-lg text-muted-foreground">Agent introuvable.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto px-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/agents')}
-            className="mt-1"
-          >
-            <ArrowLeft size={20} />
-          </Button>
-
-          <div className="space-y-2">
-            <h1 className="font-display text-3xl font-bold">
-              {agent.first_name} {agent.last_name}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Créé le {readableDate(agent.created_at)}
-            </p>
-          </div>
+    <div className="max-w-6xl space-y-6">
+      <section className="relative overflow-hidden rounded-[32px] border bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.16),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(255,107,0,0.12),transparent_30%),linear-gradient(135deg,hsl(var(--card)),hsl(var(--surface-1)))] p-6 shadow-sm md:p-8">
+        <div className="absolute right-4 top-4 hidden rounded-full border border-white/20 bg-white/10 p-3 backdrop-blur md:flex dark:border-white/10">
+          <Sparkles className="h-5 w-5 text-primary" />
         </div>
 
-        <Badge variant={agent.status === 'active' ? 'success' : 'secondary'}>
-          {agent.status === 'active' ? 'Actif' : 'Inactif'}
-        </Badge>
-      </div>
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div className="flex items-start gap-3">
+            <Button variant="ghost" size="icon" className="mt-1 rounded-2xl" onClick={() => navigate('/agents')}>
+              <ArrowLeft size={18} />
+            </Button>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2 shadow-sm border">
-          <CardHeader className="pb-4 border-b">
-            <CardTitle className="text-lg">Informations Personnelles</CardTitle>
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                <User size={14} />
+                Fiche agent
+              </div>
+
+              <h1 className="mt-4 text-3xl font-bold tracking-tight md:text-4xl">
+                {agent.first_name} {agent.last_name}
+              </h1>
+
+              <p className="mt-2 text-sm text-muted-foreground">
+                Créé le {readableDate(agent.created_at)}
+              </p>
+            </div>
+          </div>
+
+          <Badge variant={agent.status === 'active' ? 'success' : 'secondary'}>
+            {agent.status === 'active' ? 'Actif' : 'Inactif'}
+          </Badge>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <Card className="overflow-hidden rounded-[30px] border bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--surface-1)))] shadow-sm lg:col-span-2">
+          <CardHeader className="border-b border-border/60 pb-4">
+            <CardTitle className="text-lg font-semibold tracking-tight">
+              Informations personnelles
+            </CardTitle>
           </CardHeader>
 
           <CardContent className="pt-6">
@@ -235,7 +254,7 @@ const loadPerformance = useCallback(async () => {
                     value={form.firstName}
                     onChange={(e) => updateField('firstName', e.target.value)}
                     placeholder="Ex: Jean"
-                    className="h-11"
+                    className="h-11 rounded-2xl"
                   />
                 </Field>
 
@@ -244,7 +263,7 @@ const loadPerformance = useCallback(async () => {
                     value={form.lastName}
                     onChange={(e) => updateField('lastName', e.target.value)}
                     placeholder="Ex: Dupont"
-                    className="h-11"
+                    className="h-11 rounded-2xl"
                   />
                 </Field>
 
@@ -254,7 +273,7 @@ const loadPerformance = useCallback(async () => {
                     value={form.email}
                     onChange={(e) => updateField('email', e.target.value)}
                     placeholder="exemple@email.com"
-                    className="h-11"
+                    className="h-11 rounded-2xl"
                   />
                 </Field>
 
@@ -262,14 +281,14 @@ const loadPerformance = useCallback(async () => {
                   <Input
                     value={form.phone}
                     onChange={(e) => updateField('phone', e.target.value)}
-                    placeholder="+33 6 XX XX XX XX"
-                    className="h-11"
+                    placeholder="+223 70 00 00 00"
+                    className="h-11 rounded-2xl"
                   />
                 </Field>
 
                 <Field label="Zone principale" icon={<MapPin size={16} />}>
                   <select
-                    className="h-11 w-full rounded-md border border-input bg-background px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     value={form.zoneId}
                     onChange={(e) => updateField('zoneId', e.target.value)}
                   >
@@ -282,9 +301,9 @@ const loadPerformance = useCallback(async () => {
                   </select>
                 </Field>
 
-                <Field label="Statut">
+                <Field label="Statut" icon={<ShieldCheck size={16} />}>
                   <select
-                    className="h-11 w-full rounded-md border border-input bg-background px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     value={form.status}
                     onChange={(e) => updateField('status', e.target.value)}
                   >
@@ -296,26 +315,22 @@ const loadPerformance = useCallback(async () => {
 
               <Field label="Biographie">
                 <textarea
-                  className="min-h-[140px] w-full resize-none rounded-md border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="min-h-[140px] w-full resize-none rounded-2xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   value={form.bio}
                   onChange={(e) => updateField('bio', e.target.value)}
                   placeholder="Ajouter une description..."
                 />
               </Field>
 
-              {error && (
-                <div className="rounded-md border border-red-200 bg-red-50 p-3">
+              {error ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-3">
                   <p className="text-sm text-red-700">{error}</p>
                 </div>
-              )}
+              ) : null}
 
               <div className="flex justify-end pt-2">
-                <Button type="submit" disabled={saving} size="lg" className="h-11">
-                  {saving ? (
-                    <Loader2 size={18} className="mr-2 animate-spin" />
-                  ) : (
-                    <Save size={18} className="mr-2" />
-                  )}
+                <Button type="submit" disabled={saving} className="h-11 rounded-2xl">
+                  {saving ? <Loader2 size={18} className="mr-2 animate-spin" /> : <Save size={18} className="mr-2" />}
                   Enregistrer les modifications
                 </Button>
               </div>
@@ -323,16 +338,18 @@ const loadPerformance = useCallback(async () => {
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm border">
-          <CardHeader className="pb-4 border-b">
-            <CardTitle className="text-lg">Performance</CardTitle>
+        <Card className="overflow-hidden rounded-[30px] border bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--surface-1)))] shadow-sm">
+          <CardHeader className="border-b border-border/60 pb-4">
+            <CardTitle className="text-lg font-semibold tracking-tight">
+              Performance
+            </CardTitle>
           </CardHeader>
 
-          <CardContent className="pt-6 space-y-4">
+          <CardContent className="space-y-4 pt-6">
             <div>
               <label className="mb-2 block text-sm font-medium">Période</label>
               <select
-                className="h-11 w-full rounded-md border border-input bg-background px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 value={perfPeriod}
                 onChange={(e) => setPerfPeriod(e.target.value)}
               >
@@ -354,15 +371,17 @@ const loadPerformance = useCallback(async () => {
         </Card>
       </div>
 
-      <Card className="shadow-sm border">
-        <CardHeader className="pb-4 border-b">
-          <CardTitle className="text-lg">Zones Affectées</CardTitle>
+      <Card className="overflow-hidden rounded-[30px] border bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--surface-1)))] shadow-sm">
+        <CardHeader className="border-b border-border/60 pb-4">
+          <CardTitle className="text-lg font-semibold tracking-tight">
+            Zones affectées
+          </CardTitle>
         </CardHeader>
 
-        <CardContent className="pt-6 space-y-6">
+        <CardContent className="space-y-6 pt-6">
           <div className="flex gap-3">
             <select
-              className="h-11 min-w-0 flex-1 rounded-md border border-input bg-background px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="h-11 min-w-0 flex-1 rounded-2xl border border-input bg-background px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               value={selectedZone}
               onChange={(e) => setSelectedZone(e.target.value)}
             >
@@ -374,17 +393,8 @@ const loadPerformance = useCallback(async () => {
               ))}
             </select>
 
-            <Button
-              onClick={handleAddZone}
-              disabled={!selectedZone || addingZone}
-              size="lg"
-              className="h-11"
-            >
-              {addingZone ? (
-                <Loader2 size={18} className="mr-2 animate-spin" />
-              ) : (
-                <Plus size={18} className="mr-2" />
-              )}
+            <Button onClick={handleAddZone} disabled={!selectedZone || addingZone} className="h-11 rounded-2xl">
+              {addingZone ? <Loader2 size={18} className="mr-2 animate-spin" /> : <Plus size={18} className="mr-2" />}
               Ajouter
             </Button>
           </div>
@@ -399,7 +409,7 @@ const loadPerformance = useCallback(async () => {
               {agent.zones.map((z) => (
                 <div
                   key={z.id}
-                  className="flex items-center justify-between rounded-lg border bg-card px-4 py-3 transition-colors hover:bg-accent"
+                  className="flex items-center justify-between rounded-2xl border bg-card px-4 py-3 transition-colors hover:bg-accent"
                 >
                   <div className="flex items-center gap-3">
                     <MapPin size={16} className="text-primary" />
@@ -413,7 +423,7 @@ const loadPerformance = useCallback(async () => {
                     variant="ghost"
                     size="sm"
                     onClick={() => handleRemoveZone(z.id)}
-                    className="h-10 w-10 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                    className="h-10 w-10 rounded-xl p-0 hover:bg-destructive hover:text-destructive-foreground"
                   >
                     <Trash2 size={16} />
                   </Button>
@@ -431,7 +441,7 @@ function Field({ label, children, icon }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        {icon && <span className="text-muted-foreground">{icon}</span>}
+        {icon ? <span className="text-muted-foreground">{icon}</span> : null}
         <label className="text-sm font-semibold text-foreground">{label}</label>
       </div>
       {children}
@@ -441,7 +451,7 @@ function Field({ label, children, icon }) {
 
 function MiniStat({ label, value }) {
   return (
-    <div className="rounded-lg border bg-card px-4 py-3 transition-colors hover:bg-accent">
+    <div className="rounded-2xl border bg-card px-4 py-3 transition-colors hover:bg-accent">
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </p>

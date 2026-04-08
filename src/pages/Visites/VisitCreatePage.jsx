@@ -1,6 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, Save } from 'lucide-react';
+import {
+  ArrowLeft,
+  Loader2,
+  Save,
+  Sparkles,
+  CalendarDays,
+  Clock3,
+  User2,
+  MapPinned,
+  FileText,
+} from 'lucide-react';
 import { visitsApi, clientsApi, leadsApi, agentsApi, terrainsApi } from '@/Api/resourceApi';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -95,31 +105,56 @@ export default function VisitCreatePage() {
   };
 
   return (
-    <div className="space-y-5 max-w-3xl">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/visites')}>
-          <ArrowLeft size={18} />
-        </Button>
-        <div>
-          <h1 className="font-display text-2xl font-semibold">Nouvelle visite</h1>
-          <p className="text-sm text-muted-foreground">Planifier une visite terrain</p>
+    <div className="max-w-4xl space-y-6">
+      <section className="relative overflow-hidden rounded-[32px] border bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.16),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(255,107,0,0.12),transparent_30%),linear-gradient(135deg,hsl(var(--card)),hsl(var(--surface-1)))] p-6 shadow-sm md:p-8">
+        <div className="absolute right-4 top-4 hidden rounded-full border border-white/20 bg-white/10 p-3 backdrop-blur md:flex dark:border-white/10">
+          <Sparkles className="h-5 w-5 text-primary" />
         </div>
-      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Planification</CardTitle>
+        <div className="flex items-start gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="mt-1 rounded-2xl"
+            onClick={() => navigate('/visites')}
+          >
+            <ArrowLeft size={18} />
+          </Button>
+
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+              <CalendarDays className="h-3.5 w-3.5" />
+              Planification
+            </div>
+
+            <h1 className="mt-4 text-3xl font-bold tracking-tight md:text-4xl">
+              Nouvelle visite
+            </h1>
+
+            <p className="mt-2 text-sm text-muted-foreground">
+              Planifie une visite terrain avec client ou lead
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <Card className="overflow-hidden rounded-[30px] border bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--surface-1)))] shadow-sm">
+        <CardHeader className="border-b border-border/60 pb-4">
+          <CardTitle className="text-lg font-semibold tracking-tight">
+            Planification
+          </CardTitle>
         </CardHeader>
-        <CardContent>
+
+        <CardContent className="p-5">
           {loadingData ? (
-            <div className="flex items-center justify-center h-40">
+            <div className="flex h-40 items-center justify-center">
               <Loader2 size={24} className="animate-spin text-primary" />
             </div>
           ) : (
             <form className="space-y-5" onSubmit={handleSubmit}>
-              <Field label="Terrain *">
+              <Field label="Terrain *" icon={MapPinned}>
                 <select
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  className="h-11 w-full rounded-2xl border border-input bg-background px-4 pl-10 text-sm"
                   value={form.terrainId}
                   onChange={(e) => updateField('terrainId', e.target.value)}
                   required
@@ -133,28 +168,30 @@ export default function VisitCreatePage() {
                 </select>
               </Field>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Field label="Date *">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Field label="Date *" icon={CalendarDays}>
                   <Input
                     type="date"
+                    className="h-11 rounded-2xl pl-10"
                     value={form.visitDate}
                     onChange={(e) => updateField('visitDate', e.target.value)}
                     required
                   />
                 </Field>
 
-                <Field label="Heure *">
+                <Field label="Heure *" icon={Clock3}>
                   <Input
                     type="time"
+                    className="h-11 rounded-2xl pl-10"
                     value={form.visitTime}
                     onChange={(e) => updateField('visitTime', e.target.value)}
                     required
                   />
                 </Field>
 
-                <Field label="Agent">
+                <Field label="Agent" icon={User2}>
                   <select
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    className="h-11 w-full rounded-2xl border border-input bg-background px-4 pl-10 text-sm"
                     value={form.agentId}
                     onChange={(e) => updateField('agentId', e.target.value)}
                   >
@@ -167,9 +204,9 @@ export default function VisitCreatePage() {
                   </select>
                 </Field>
 
-                <Field label="Client">
+                <Field label="Client" icon={User2}>
                   <select
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    className="h-11 w-full rounded-2xl border border-input bg-background px-4 pl-10 text-sm"
                     value={form.clientId}
                     onChange={(e) => handleClientChange(e.target.value)}
                   >
@@ -182,9 +219,9 @@ export default function VisitCreatePage() {
                   </select>
                 </Field>
 
-                <Field label="Lead">
+                <Field label="Lead" icon={User2}>
                   <select
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    className="h-11 w-full rounded-2xl border border-input bg-background px-4 pl-10 text-sm"
                     value={form.leadId}
                     onChange={(e) => handleLeadChange(e.target.value)}
                   >
@@ -198,23 +235,24 @@ export default function VisitCreatePage() {
                 </Field>
               </div>
 
-              <Field label="Notes">
+              <Field label="Notes" icon={FileText}>
                 <textarea
-                  className="min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="min-h-[120px] w-full rounded-2xl border border-input bg-background px-4 py-3 pl-10 text-sm outline-none focus:ring-2 focus:ring-primary/20"
                   value={form.notes}
                   onChange={(e) => updateField('notes', e.target.value)}
                 />
               </Field>
 
-              {error && <p className="text-sm text-destructive">{error}</p>}
+              {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
               <div className="flex justify-end gap-3">
-                <Button type="button" variant="outline" onClick={() => navigate('/visites')}>
+                <Button type="button" variant="outline" className="rounded-2xl" onClick={() => navigate('/visites')}>
                   Annuler
                 </Button>
                 <Button
                   type="submit"
-                  disabled={saving || !form.clientId && !form.leadId}
+                  className="rounded-2xl"
+                  disabled={saving || (!form.clientId && !form.leadId)}
                 >
                   {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                   Enregistrer
@@ -228,11 +266,16 @@ export default function VisitCreatePage() {
   );
 }
 
-function Field({ label, children }) {
+function Field({ label, children, icon: Icon }) {
   return (
     <div className="space-y-1.5">
       <p className="text-sm font-medium">{label}</p>
-      {children}
+      <div className="relative">
+        {Icon ? (
+          <Icon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        ) : null}
+        {children}
+      </div>
     </div>
   );
 }

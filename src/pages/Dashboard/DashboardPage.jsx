@@ -7,6 +7,9 @@ import {
   CreditCard,
   HeadphonesIcon,
   TrendingUp,
+  ArrowUpRight,
+  Activity,
+  Sparkles,
 } from 'lucide-react';
 import api from '@/Api/axiosInstance';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,34 +21,47 @@ const PERIODS = [
   { label: 'Ce mois', value: 'month' },
 ];
 
-function KpiCard({ label, value, icon: Icon, tone = 'primary', path, loading }) {
+function KpiCard({
+  label,
+  value,
+  icon: Icon,
+  tone = 'primary',
+  path,
+  loading,
+  subtitle,
+}) {
   const navigate = useNavigate();
 
   const tones = {
     primary: {
-      iconBg: 'bg-primary',
-      ring: 'hover:border-primary/30',
-      glow: 'hover:shadow-[0_8px_30px_rgba(14,165,183,0.12)]',
+      iconWrap:
+        'bg-[linear-gradient(135deg,hsl(var(--primary)),hsl(var(--primary-deep)))] text-white shadow-[0_12px_30px_hsl(var(--primary)/0.28)]',
+      badge: 'bg-primary/10 text-primary',
+      hover: 'hover:border-primary/20',
     },
     orange: {
-      iconBg: 'bg-[hsl(var(--accent-foreground))]',
-      ring: 'hover:border-orange-300/40',
-      glow: 'hover:shadow-[0_8px_30px_rgba(255,107,0,0.12)]',
+      iconWrap:
+        'bg-[linear-gradient(135deg,#ff9b3d,#ff6b00)] text-white shadow-[0_12px_30px_rgba(255,107,0,0.22)]',
+      badge: 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300',
+      hover: 'hover:border-orange-300/30',
     },
     violet: {
-      iconBg: 'bg-violet-500',
-      ring: 'hover:border-violet-300/40',
-      glow: 'hover:shadow-[0_8px_30px_rgba(139,92,246,0.12)]',
+      iconWrap:
+        'bg-[linear-gradient(135deg,#8b5cf6,#6d28d9)] text-white shadow-[0_12px_30px_rgba(139,92,246,0.22)]',
+      badge: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
+      hover: 'hover:border-violet-300/30',
     },
     rose: {
-      iconBg: 'bg-rose-500',
-      ring: 'hover:border-rose-300/40',
-      glow: 'hover:shadow-[0_8px_30px_rgba(244,63,94,0.12)]',
+      iconWrap:
+        'bg-[linear-gradient(135deg,#f43f5e,#e11d48)] text-white shadow-[0_12px_30px_rgba(244,63,94,0.22)]',
+      badge: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300',
+      hover: 'hover:border-rose-300/30',
     },
     emerald: {
-      iconBg: 'bg-emerald-500',
-      ring: 'hover:border-emerald-300/40',
-      glow: 'hover:shadow-[0_8px_30px_rgba(16,185,129,0.12)]',
+      iconWrap:
+        'bg-[linear-gradient(135deg,#10b981,#059669)] text-white shadow-[0_12px_30px_rgba(16,185,129,0.22)]',
+      badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
+      hover: 'hover:border-emerald-300/30',
     },
   };
 
@@ -55,30 +71,55 @@ function KpiCard({ label, value, icon: Icon, tone = 'primary', path, loading }) 
     <Card
       onClick={() => path && navigate(path)}
       className={[
-        'cursor-pointer border transition-all duration-200',
-        'bg-card/95 backdrop-blur-sm',
-        'hover:-translate-y-0.5',
-        theme.ring,
-        theme.glow,
+        'group cursor-pointer overflow-hidden rounded-[28px] border bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--surface-1)))]',
+        'shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-[var(--shadow-lg)]',
+        theme.hover,
       ].join(' ')}
     >
-      <CardContent className="pt-6">
-        <div className="flex items-center justify-between gap-4">
+      <CardContent className="relative p-5">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+
+        <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-sm text-muted-foreground">{label}</p>
+            <div className="inline-flex items-center gap-2 rounded-full bg-muted/70 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+              <Activity className="h-3.5 w-3.5" />
+              Indicateur
+            </div>
+
+            <p className="mt-3 text-sm font-medium text-muted-foreground">{label}</p>
 
             {loading ? (
-              <div className="mt-2 h-8 w-16 animate-pulse rounded bg-muted" />
+              <div className="mt-3 h-9 w-24 animate-pulse rounded-xl bg-muted" />
             ) : (
-              <p className="mt-2 text-3xl font-display font-bold tracking-tight">
+              <p className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">
                 {value ?? '—'}
               </p>
             )}
+
+            <p className="mt-2 text-xs text-muted-foreground">
+              {subtitle || 'Accès rapide aux données'}
+            </p>
           </div>
 
-          <div className={`flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-sm ${theme.iconBg}`}>
-            <Icon size={22} />
+          <div
+            className={[
+              'flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl transition-transform duration-300 group-hover:scale-105',
+              theme.iconWrap,
+            ].join(' ')}
+          >
+            <Icon size={24} />
           </div>
+        </div>
+
+        <div className="mt-5 flex items-center justify-between">
+          <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${theme.badge}`}>
+            Vue synthétique
+          </span>
+
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors group-hover:text-foreground">
+            Ouvrir
+            <ArrowUpRight className="h-3.5 w-3.5" />
+          </span>
         </div>
       </CardContent>
     </Card>
@@ -87,19 +128,73 @@ function KpiCard({ label, value, icon: Icon, tone = 'primary', path, loading }) 
 
 function SmallStatusBadge({ children, tone = 'default' }) {
   const tones = {
-    default: 'bg-muted text-muted-foreground',
-    primary: 'bg-primary/10 text-primary',
-    orange: 'bg-orange-100 text-orange-700',
+    default:
+      'bg-muted text-muted-foreground border-border',
+    primary:
+      'bg-primary/10 text-primary border-primary/15',
+    orange:
+      'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/20',
+    emerald:
+      'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/20',
+    rose:
+      'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/20',
   };
 
   return (
-    <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${tones[tone] || tones.default}`}>
+    <span
+      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${tones[tone] || tones.default}`}
+    >
       {children}
     </span>
   );
 }
 
+function ListSkeleton() {
+  return (
+    <div className="space-y-3">
+      {[...Array(4)].map((_, i) => (
+        <div
+          key={i}
+          className="h-16 animate-pulse rounded-2xl border bg-muted/60"
+        />
+      ))}
+    </div>
+  );
+}
+
+function SectionCard({ title, subtitle, actionLabel, onAction, children }) {
+  return (
+    <Card className="overflow-hidden rounded-[30px] border bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--surface-1)))] shadow-sm">
+      <CardHeader className="border-b border-border/60 pb-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <CardTitle className="text-lg font-semibold tracking-tight">
+              {title}
+            </CardTitle>
+            {subtitle ? (
+              <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+            ) : null}
+          </div>
+
+          {actionLabel ? (
+            <button
+              onClick={onAction}
+              className="inline-flex items-center gap-2 rounded-xl border bg-background/80 px-3 py-2 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            >
+              {actionLabel}
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+        </div>
+      </CardHeader>
+
+      <CardContent className="p-5">{children}</CardContent>
+    </Card>
+  );
+}
+
 export default function DashboardPage() {
+  const navigate = useNavigate();
   const [period, setPeriod] = useState('30d');
   const [kpis, setKpis] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -121,42 +216,57 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-semibold">Dashboard</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            Vue opérationnelle globale
-          </p>
+      {/* Hero header */}
+      <section className="relative overflow-hidden rounded-[32px] border bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.16),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(255,107,0,0.12),transparent_30%),linear-gradient(135deg,hsl(var(--card)),hsl(var(--surface-1)))] p-6 shadow-sm md:p-8">
+        <div className="absolute right-4 top-4 hidden rounded-full border border-white/20 bg-white/10 p-3 backdrop-blur md:flex dark:border-white/10">
+          <Sparkles className="h-5 w-5 text-primary" />
         </div>
 
-        <div className="inline-flex w-fit gap-1 rounded-xl border bg-card p-1 shadow-sm">
-          {PERIODS.map((p) => (
-            <button
-              key={p.value}
-              onClick={() => setPeriod(p.value)}
-              className={[
-                'rounded-lg px-3 py-2 text-xs font-medium transition-all',
-                period === p.value
-                  ? 'bg-primary text-white shadow-sm'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-              ].join(' ')}
-            >
-              {p.label}
-            </button>
-          ))}
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+              <Activity className="h-3.5 w-3.5" />
+              Vue opérationnelle globale
+            </div>
+
+            <h1 className="mt-4 text-3xl font-bold tracking-tight md:text-4xl">
+              Dashboard
+            </h1>
+
+            <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
+              Suivez l’activité commerciale, les paiements, les visites et le support
+              depuis votre interface de pilotage.
+            </p>
+          </div>
+
+          <div className="inline-flex w-fit flex-wrap gap-2 rounded-2xl border bg-background/70 p-1.5 shadow-sm backdrop-blur">
+            {PERIODS.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => setPeriod(p.value)}
+                className={[
+                  'rounded-xl px-4 py-2.5 text-xs font-semibold transition-all',
+                  period === p.value
+                    ? 'bg-[linear-gradient(135deg,hsl(var(--primary)),hsl(var(--primary-deep)))] text-white shadow-[0_12px_24px_hsl(var(--primary)/0.22)]'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                ].join(' ')}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* Error */}
       {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
           {error}
         </div>
       ) : null}
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <KpiCard
           label="Nouveaux leads"
           value={kpis?.new_leads}
@@ -164,6 +274,7 @@ export default function DashboardPage() {
           tone="primary"
           path="/leads"
           loading={loading}
+          subtitle="Leads ajoutés sur la période"
         />
         <KpiCard
           label="Leads en attente"
@@ -172,6 +283,7 @@ export default function DashboardPage() {
           tone="orange"
           path="/leads"
           loading={loading}
+          subtitle="À relancer ou qualifier"
         />
         <KpiCard
           label="Visites planifiées"
@@ -180,14 +292,16 @@ export default function DashboardPage() {
           tone="violet"
           path="/visites"
           loading={loading}
+          subtitle="Visites programmées"
         />
         <KpiCard
-          label="Paiements en att."
+          label="Paiements en attente"
           value={kpis?.payments_pending}
           icon={CreditCard}
           tone="orange"
           path="/paiements"
           loading={loading}
+          subtitle="Paiements à confirmer"
         />
         <KpiCard
           label="Tickets ouverts"
@@ -196,6 +310,7 @@ export default function DashboardPage() {
           tone="rose"
           path="/support"
           loading={loading}
+          subtitle="Demandes support en cours"
         />
         <KpiCard
           label="Clients actifs"
@@ -204,91 +319,108 @@ export default function DashboardPage() {
           tone="emerald"
           path="/clients"
           loading={loading}
+          subtitle="Clients actifs sur la plateforme"
         />
-      </div>
+      </section>
 
       {/* Detail cards */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Card className="border shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Leads récents</CardTitle>
-          </CardHeader>
-
-          <CardContent>
-            {loading ? (
-              <div className="space-y-2">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="h-12 animate-pulse rounded-lg bg-muted" />
-                ))}
-              </div>
-            ) : !kpis?.recent_leads?.length ? (
-              <p className="text-sm text-muted-foreground">Aucun lead récent</p>
-            ) : (
-              <div className="space-y-2">
-                {kpis.recent_leads.map((l) => (
-                  <div
-                    key={l.id}
-                    className="flex items-center justify-between rounded-lg border px-3 py-3 transition-colors hover:bg-muted/40"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">
-                        {l.first_name} {l.last_name}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {l.source || '—'}
+      <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+        <SectionCard
+          title="Leads récents"
+          subtitle="Derniers contacts créés dans le système"
+          actionLabel="Voir les leads"
+          onAction={() => navigate('/leads')}
+        >
+          {loading ? (
+            <ListSkeleton />
+          ) : !kpis?.recent_leads?.length ? (
+            <div className="flex min-h-[220px] flex-col items-center justify-center rounded-[24px] border border-dashed bg-muted/20 px-6 text-center">
+              <p className="text-sm font-medium">Aucun lead récent</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Les nouveaux leads apparaîtront ici.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {kpis.recent_leads.map((l) => (
+                <div
+                  key={l.id}
+                  className="group flex items-center justify-between gap-4 rounded-2xl border bg-background/70 px-4 py-4 transition-all duration-200 hover:border-primary/15 hover:bg-primary/[0.03]"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      {l.first_name} {l.last_name}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <p className="text-xs text-muted-foreground">
+                        Source : {l.source || '—'}
                       </p>
                     </div>
-
-                    <SmallStatusBadge tone="primary">
-                      {l.status}
-                    </SmallStatusBadge>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
-        <Card className="border shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Visites à venir</CardTitle>
-          </CardHeader>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <SmallStatusBadge tone="primary">{l.status}</SmallStatusBadge>
+                    <button
+                      onClick={() => navigate('/leads')}
+                      className="hidden rounded-xl border px-2.5 py-2 text-muted-foreground transition hover:bg-muted hover:text-foreground md:inline-flex"
+                    >
+                      <ArrowUpRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </SectionCard>
 
-          <CardContent>
-            {loading ? (
-              <div className="space-y-2">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="h-12 animate-pulse rounded-lg bg-muted" />
-                ))}
-              </div>
-            ) : !kpis?.upcoming_visits?.length ? (
-              <p className="text-sm text-muted-foreground">Aucune visite à venir</p>
-            ) : (
-              <div className="space-y-2">
-                {kpis.upcoming_visits.map((v) => (
-                  <div
-                    key={v.id}
-                    className="flex items-center justify-between rounded-lg border px-3 py-3 transition-colors hover:bg-muted/40"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">
-                        {v.terrain_title}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {v.visit_date} à {v.visit_time}
-                      </p>
-                    </div>
+        <SectionCard
+          title="Visites à venir"
+          subtitle="Planning des prochaines visites terrain"
+          actionLabel="Voir les visites"
+          onAction={() => navigate('/visites')}
+        >
+          {loading ? (
+            <ListSkeleton />
+          ) : !kpis?.upcoming_visits?.length ? (
+            <div className="flex min-h-[220px] flex-col items-center justify-center rounded-[24px] border border-dashed bg-muted/20 px-6 text-center">
+              <p className="text-sm font-medium">Aucune visite à venir</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Les visites planifiées apparaîtront ici.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {kpis.upcoming_visits.map((v) => (
+                <div
+                  key={v.id}
+                  className="group flex items-center justify-between gap-4 rounded-2xl border bg-background/70 px-4 py-4 transition-all duration-200 hover:border-orange-300/25 hover:bg-orange-500/[0.03]"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      {v.terrain_title}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {v.visit_date} à {v.visit_time}
+                    </p>
+                  </div>
 
+                  <div className="flex shrink-0 items-center gap-2">
                     <SmallStatusBadge tone="orange">
                       {v.agent_name || '—'}
                     </SmallStatusBadge>
+                    <button
+                      onClick={() => navigate('/visites')}
+                      className="hidden rounded-xl border px-2.5 py-2 text-muted-foreground transition hover:bg-muted hover:text-foreground md:inline-flex"
+                    >
+                      <ArrowUpRight className="h-4 w-4" />
+                    </button>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+      </section>
     </div>
   );
 }

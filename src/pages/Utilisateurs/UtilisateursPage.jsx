@@ -1,208 +1,301 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Search, X, Plus, Loader2 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
+import {
+  Search,
+  X,
+  Plus,
+  ShieldCheck,
+  UserCog,
+  ArrowUpRight,
+  Filter,
+  Sparkles,
+} from 'lucide-react';
 import api from '@/Api/axiosInstance';
 import DataTable from '@/components/custome/DataTable';
 import Pagination from '@/components/custome/Pagination';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { USER_STATUS, ROLES } from '@/Util/statusConfig';
 import { readableDate } from '@/Util/readableDate';
+import UserFormModal from './UserForModal';
 
-function UserFormModal({ onClose, onSuccess, user }) {
-  const isEdit = !!user;
-  const [serverError, setServerError] = useState(null);
+const COLUMNS = [
+  {
+    key: 'name',
+    label: 'Utilisateur',
+    render: (_, row) => (
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold text-foreground">
+          {row.first_name} {row.last_name}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">{row.email}</p>
+      </div>
+    ),
+  },
+  {
+    key: 'role',
+    label: 'Rôle',
+    render: (v) => <StatusBadge map={ROLES} value={v} />,
+  },
+  {
+    key: 'status',
+    label: 'Statut',
+    render: (v) => <StatusBadge map={USER_STATUS} value={v} />,
+  },
+  {
+    key: 'last_login_at',
+    label: 'Dernière connexion',
+    render: (v) => (
+      <span className="text-xs text-muted-foreground">
+        {v ? readableDate(v) : 'Jamais'}
+      </span>
+    ),
+  },
+  {
+    key: 'created_at',
+    label: 'Créé le',
+    render: (v) => (
+      <span className="text-xs text-muted-foreground">{readableDate(v)}</span>
+    ),
+  },
+];
 
-  const schema = isEdit
-    ? z.object({ role: z.string(), status: z.string() })
-    : z.object({
-        firstName: z.string().min(1, 'Requis'),
-        lastName:  z.string().min(1, 'Requis'),
-        email:     z.string().email('Email invalide'),
-        password:  z.string().min(8, '8 caractères min.'),
-        role:      z.string().min(1, 'Requis'),
-      });
-
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
-    resolver: zodResolver(schema),
-    defaultValues: user ? { role: user.role, status: user.status } : {},
-  });
-
-  const onSubmit = async (values) => {
-    setServerError(null);
-    try {
-      if (isEdit) {
-        await api.patch(`/users/${user.id}`, { role: values.role, status: values.status });
-      } else {
-        await api.post('/users', values);
-      }
-      onSuccess();
-    } catch (err) { setServerError(err.response?.data?.message || 'Erreur'); }
+function StatCard({ label, value, icon: Icon, tone = 'primary' }) {
+  const tones = {
+    primary: 'bg-primary/10 text-primary',
+    orange: 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300',
+    violet: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
+    emerald: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
   };
 
-  const selCls = 'flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm';
-
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-card rounded-xl shadow-xl w-full max-w-md animate-fade-in">
-        <div className="flex items-center justify-between p-5 border-b">
-          <h2 className="font-display font-semibold">{isEdit ? 'Modifier l\'utilisateur' : 'Nouvel utilisateur'}</h2>
-          <button onClick={onClose}><X size={18} className="text-muted-foreground" /></button>
+    <div className="rounded-[24px] border bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--surface-1)))] p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm text-muted-foreground">{label}</p>
+          <p className="mt-2 text-2xl font-bold tracking-tight">{value}</p>
         </div>
-        <form onSubmit={handleSubmit(onSubmit)} className="p-5 space-y-4">
-          {serverError && <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">{serverError}</p>}
-
-          {!isEdit && (
-            <>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Prénom *</Label>
-                  <Input {...register('firstName')} />
-                  {errors.firstName && <p className="text-xs text-destructive">{errors.firstName.message}</p>}
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Nom *</Label>
-                  <Input {...register('lastName')} />
-                  {errors.lastName && <p className="text-xs text-destructive">{errors.lastName.message}</p>}
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Email *</Label>
-                <Input type="email" {...register('email')} />
-                {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label>Mot de passe *</Label>
-                <Input type="password" placeholder="8 caractères min." {...register('password')} />
-                {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
-              </div>
-            </>
-          )}
-
-          <div className="space-y-1.5">
-            <Label>Rôle *</Label>
-            <select className={selCls} {...register('role')}>
-              <option value="">— Sélectionner —</option>
-              {Object.entries(ROLES).filter(([k]) => k !== 'super_admin').map(([k, v]) => (
-                <option key={k} value={k}>{v.label}</option>
-              ))}
-            </select>
-            {errors.role && <p className="text-xs text-destructive">{errors.role.message}</p>}
-          </div>
-
-          {isEdit && (
-            <div className="space-y-1.5">
-              <Label>Statut</Label>
-              <select className={selCls} {...register('status')}>
-                <option value="active">Actif</option>
-                <option value="inactive">Inactif</option>
-                <option value="suspended">Suspendu</option>
-              </select>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={onClose}>Annuler</Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 size={14} className="animate-spin" />}
-              {isEdit ? 'Enregistrer' : 'Créer'}
-            </Button>
-          </div>
-        </form>
+        <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${tones[tone] || tones.primary}`}>
+          <Icon className="h-5 w-5" />
+        </div>
       </div>
     </div>
   );
 }
 
-const COLUMNS = [
-  { key: 'name', label: 'Utilisateur',
-    render: (_, row) => (
-      <div>
-        <p className="font-medium text-sm">{row.first_name} {row.last_name}</p>
-        <p className="text-xs text-muted-foreground">{row.email}</p>
-      </div>
-    )},
-  { key: 'role',   label: 'Rôle',   render: v => <StatusBadge map={ROLES} value={v} /> },
-  { key: 'status', label: 'Statut', render: v => <StatusBadge map={USER_STATUS} value={v} /> },
-  { key: 'last_login_at', label: 'Dernière connexion',
-    render: v => <span className="text-xs text-muted-foreground">{v ? readableDate(v) : 'Jamais'}</span> },
-  { key: 'created_at', label: 'Créé le',
-    render: v => <span className="text-xs text-muted-foreground">{readableDate(v)}</span> },
-];
-
 export default function UtilisateursPage() {
-  const [data, setData]         = useState([]);
-  const [meta, setMeta]         = useState(null);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState(null);
+  const [data, setData] = useState([]);
+  const [meta, setMeta] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing]   = useState(null);
-  const [filters, setFilters]   = useState({ search: '', role: '', status: '', page: 1, limit: 20 });
+  const [editing, setEditing] = useState(null);
+
+  const [filters, setFilters] = useState({
+    search: '',
+    role: '',
+    status: '',
+    page: 1,
+    limit: 20,
+  });
 
   const fetch = useCallback(async () => {
-    setLoading(true); setError(null);
+    setLoading(true);
+    setError(null);
     try {
-      const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== ''));
+      const params = Object.fromEntries(
+        Object.entries(filters).filter(([, v]) => v !== '')
+      );
       const r = await api.get('/users', { params });
-      setData(r.data.data); setMeta(r.data.meta);
-    } catch { setError('Impossible de charger les utilisateurs'); }
-    finally { setLoading(false); }
+      setData(r.data.data);
+      setMeta(r.data.meta);
+    } catch {
+      setError('Impossible de charger les utilisateurs');
+    } finally {
+      setLoading(false);
+    }
   }, [filters]);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
 
   const hasFilters = filters.search || filters.role || filters.status;
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-semibold">Utilisateurs internes</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            {meta ? `${meta.total} utilisateur${meta.total > 1 ? 's' : ''}` : '…'}
-          </p>
+    <div className="space-y-6">
+      <section className="relative overflow-hidden rounded-[32px] border bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.16),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(255,107,0,0.12),transparent_30%),linear-gradient(135deg,hsl(var(--card)),hsl(var(--surface-1)))] p-6 shadow-sm md:p-8">
+        <div className="absolute right-4 top-4 hidden rounded-full border border-white/20 bg-white/10 p-3 backdrop-blur md:flex dark:border-white/10">
+          <Sparkles className="h-5 w-5 text-primary" />
         </div>
-        <Button onClick={() => setShowForm(true)}><Plus size={16} /> Nouvel utilisateur</Button>
-      </div>
 
-      <div className="flex flex-wrap gap-3">
-        <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Nom, email…" className="pl-8 w-52"
-            value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value, page: 1 }))} />
-        </div>
-        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-          value={filters.role} onChange={e => setFilters(f => ({ ...f, role: e.target.value, page: 1 }))}>
-          <option value="">Tous les rôles</option>
-          {Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-        </select>
-        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-          value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value, page: 1 }))}>
-          <option value="">Tous les statuts</option>
-          {Object.entries(USER_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-        </select>
-        {hasFilters && (
-          <Button variant="ghost" size="sm" onClick={() => setFilters({ search: '', role: '', status: '', page: 1, limit: 20 })}>
-            <X size={14} /> Reset
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+              <UserCog className="h-3.5 w-3.5" />
+              Administration interne
+            </div>
+
+            <h1 className="mt-4 text-3xl font-bold tracking-tight md:text-4xl">
+              Utilisateurs internes
+            </h1>
+
+            <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
+              
+            </p>
+          </div>
+
+          <Button
+            onClick={() => setShowForm(true)}
+            className="h-11 rounded-2xl px-5 shadow-[0_12px_24px_hsl(var(--primary)/0.22)]"
+          >
+            <Plus size={16} />
+            Nouvel utilisateur
           </Button>
-        )}
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Total utilisateurs"
+          value={loading ? '...' : meta?.total ?? 0}
+          icon={UserCog}
+          tone="primary"
+        />
+        <StatCard
+          label="Page actuelle"
+          value={loading ? '...' : filters.page}
+          icon={ArrowUpRight}
+          tone="violet"
+        />
+        <StatCard
+          label="Par page"
+          value={filters.limit}
+          icon={Filter}
+          tone="orange"
+        />
+        <StatCard
+          label="Filtres actifs"
+          value={hasFilters ? 'Oui' : 'Non'}
+          icon={ShieldCheck}
+          tone="emerald"
+        />
+      </section>
+
+      <section className="rounded-[28px] border bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--surface-1)))] p-4 shadow-sm md:p-5">
+        <div className="mb-4 flex items-center gap-2">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <Filter className="h-4 w-4" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold">Filtres</h2>
+            <p className="text-sm text-muted-foreground">
+              Recherche par nom, email, rôle ou statut
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <div className="relative">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              placeholder="Nom, email…"
+              className="h-11 w-56 rounded-2xl pl-8"
+              value={filters.search}
+              onChange={(e) =>
+                setFilters((f) => ({ ...f, search: e.target.value, page: 1 }))
+              }
+            />
+          </div>
+
+          <select
+            className="h-11 rounded-2xl border border-input bg-background px-4 text-sm"
+            value={filters.role}
+            onChange={(e) =>
+              setFilters((f) => ({ ...f, role: e.target.value, page: 1 }))
+            }
+          >
+            <option value="">Tous les rôles</option>
+            {Object.entries(ROLES).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v.label}
+              </option>
+            ))}
+          </select>
+
+          <select
+            className="h-11 rounded-2xl border border-input bg-background px-4 text-sm"
+            value={filters.status}
+            onChange={(e) =>
+              setFilters((f) => ({ ...f, status: e.target.value, page: 1 }))
+            }
+          >
+            <option value="">Tous les statuts</option>
+            {Object.entries(USER_STATUS).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v.label}
+              </option>
+            ))}
+          </select>
+
+          {hasFilters ? (
+            <Button
+              variant="ghost"
+              className="h-11 rounded-2xl"
+              onClick={() =>
+                setFilters({
+                  search: '',
+                  role: '',
+                  status: '',
+                  page: 1,
+                  limit: 20,
+                })
+              }
+            >
+              <X size={14} />
+              Réinitialiser
+            </Button>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="rounded-[28px] border bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--surface-1)))] p-3 shadow-sm md:p-4">
+        {error ? (
+          <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
+            {error}
+          </div>
+        ) : null}
+
+        <DataTable
+          columns={COLUMNS}
+          data={data}
+          loading={loading}
+          error={null}
+          onRowClick={(row) => setEditing(row)}
+        />
+      </section>
+
+      <div className="rounded-[24px] border bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--surface-1)))] p-4 shadow-sm">
+        <Pagination meta={meta} onPageChange={(p) => setFilters((f) => ({ ...f, page: p }))} />
       </div>
 
-      <DataTable columns={COLUMNS} data={data} loading={loading} error={error}
-        onRowClick={row => setEditing(row)} />
-      <Pagination meta={meta} onPageChange={p => setFilters(f => ({ ...f, page: p }))} />
-
-      {(showForm || editing) && (
+      {showForm || editing ? (
         <UserFormModal
           user={editing}
-          onClose={() => { setShowForm(false); setEditing(null); }}
-          onSuccess={() => { setShowForm(false); setEditing(null); fetch(); }}
+          onClose={() => {
+            setShowForm(false);
+            setEditing(null);
+          }}
+          onSuccess={() => {
+            setShowForm(false);
+            setEditing(null);
+            fetch();
+          }}
         />
-      )}
+      ) : null}
     </div>
   );
 }

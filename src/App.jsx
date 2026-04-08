@@ -36,6 +36,8 @@ import UtilisateursPage   from '@/pages/Utilisateurs/UtilisateursPage';
 import AgentsPage         from '@/pages/Agents/AgentsPage';
 import AgentDetailPage    from '@/pages/Agents/AgentDetailPage';
 
+import ZonesPage from './pages/zones/ZonesPage';
+
 export default function App() {
   return (
     <AuthProvider>
@@ -73,6 +75,7 @@ export default function App() {
             {/* Admin */}
             <Route path="/agents"          element={<AgentsPage />} />
             <Route path="/agents/:id"      element={<AgentDetailPage />} />
+            <Route path="/zones"           element={<ZonesPage />} />
 
             {/* Finance — role restricted */}
             <Route element={<ProtectedRoute allowedRoles={['admin','super_admin','manager','finance']} />}>
@@ -80,6 +83,7 @@ export default function App() {
               <Route path="/paiements/:id"   element={<PaymentDetailPage />} />
               <Route path="/reporting"       element={<ReportingPage />} />
             </Route>
+            
 
             {/* Admin-only */}
             <Route element={<ProtectedRoute allowedRoles={['admin','super_admin']} />}>
