@@ -95,7 +95,7 @@ export default function LoginPage() {
                 <div className="mt-1 flex items-center gap-1.5">
                   <Sparkles size={12} className="text-[#ff6b00]" />
                   <span className="text-[11px] font-semibold uppercase tracking-[0.20em] text-[#ff6b00]">
-                    Backoffice premium
+                    Backoffice 
                   </span>
                 </div>
               </div>
