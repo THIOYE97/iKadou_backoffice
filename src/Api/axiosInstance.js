@@ -12,19 +12,53 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('accessToken');
-    if (token) config.headers.Authorization = `Bearer ${token}`;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// ─── Response interceptor — handle 401 + token refresh ──
+// ─── Response interceptor — handle 401 + token refresh + 403 redirect ──
 let isRefreshing = false;
 let failedQueue = [];
 
 const processQueue = (error, token = null) => {
-  failedQueue.forEach((p) => (error ? p.reject(error) : p.resolve(token)));
+  failedQueue.forEach((p) => {
+    if (error) p.reject(error);
+    else p.resolve(token);
+  });
   failedQueue = [];
+};
+
+const redirectToLogin = () => {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  if (window.location.pathname !== '/auth/login') {
+    window.location.href = '/auth/login';
+  }
+};
+
+const redirectToForbidden = () => {
+  if (window.location.pathname !== '/403') {
+    window.location.href = '/403';
+  }
+};
+
+const isForbiddenRoleError = (error) => {
+  const status = error?.response?.status;
+  const message = String(error?.response?.data?.message || '').toLowerCase();
+
+  if (status !== 403) return false;
+
+  return (
+    message.includes('insufficient role level') ||
+    message.includes('forbidden') ||
+    message.includes('access denied') ||
+    message.includes('not allowed') ||
+    message.includes('unauthorized role')
+  );
 };
 
 api.interceptors.response.use(
@@ -32,7 +66,14 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // ─── Handle 403 role/access issues ─────────────────────
+    if (isForbiddenRoleError(error)) {
+      redirectToForbidden();
+      return Promise.reject(error);
+    }
+
+    // ─── Handle 401 with refresh ───────────────────────────
+    if (error.response?.status === 401 && !originalRequest?._retry) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -48,8 +89,7 @@ api.interceptors.response.use(
       const refreshToken = localStorage.getItem('refreshToken');
 
       if (!refreshToken) {
-        localStorage.removeItem('accessToken');
-        window.location.href = '/auth/login';
+        redirectToLogin();
         return Promise.reject(error);
       }
 
@@ -59,6 +99,7 @@ api.interceptors.response.use(
         });
 
         const { accessToken, refreshToken: newRefreshToken } = data.data;
+
         localStorage.setItem('accessToken', accessToken);
         localStorage.setItem('refreshToken', newRefreshToken);
 
@@ -69,9 +110,7 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        window.location.href = '/auth/login';
+        redirectToLogin();
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

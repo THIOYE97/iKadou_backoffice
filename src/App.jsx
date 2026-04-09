@@ -5,6 +5,7 @@ import MainLayout         from '@/components/custome/MainLayout';
 
 import LoginPage          from '@/pages/Auth/LoginPage';
 import NotFoundPage       from '@/pages/Notfound/NotFoundPage';
+import ForbiddenPage      from '@/pages/Notfound/ForbiddenPage';
 
 import DashboardPage      from '@/pages/Dashboard/DashboardPage';
 import ReportingPage      from '@/pages/Reporting/ReportingPage';
@@ -76,6 +77,7 @@ export default function App() {
             <Route path="/agents"          element={<AgentsPage />} />
             <Route path="/agents/:id"      element={<AgentDetailPage />} />
             <Route path="/zones"           element={<ZonesPage />} />
+            
 
             {/* Finance — role restricted */}
             <Route element={<ProtectedRoute allowedRoles={['admin','super_admin','manager','finance']} />}>
@@ -95,7 +97,9 @@ export default function App() {
 
         {/* ── 404 ────────────────────────────────── */}
         <Route path="*" element={<NotFoundPage />} />
+        <Route path="/403" element={<ForbiddenPage />} />
       </Routes>
+      
     </AuthProvider>
   );
 }
