@@ -29,6 +29,13 @@ export const paymentApi = {
   refund:       (id, data) => api.post(`/payments/${id}/refund`, data).then(r => r.data),
   updateStatus: (id, data) => api.patch(`/payments/${id}/status`, data).then(r => r.data),
 
+  // ── Proofs review ──────────────────────────────────────
+  listProofs: (paymentId) =>
+    api.get(`/payments/${paymentId}/proofs`).then(r => r.data),
+
+  reviewProof: (proofId, data) =>
+    api.patch(`/payments/proofs/${proofId}/review`, data).then(r => r.data),
+
   // ── Installment plan ───────────────────────────────────
   createPlan: (data) => api.post('/payments/installment', data).then(r => r.data),
 };

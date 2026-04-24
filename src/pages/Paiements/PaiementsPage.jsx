@@ -304,18 +304,28 @@ export default function PaiementsPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" className="h-11 rounded-2xl" onClick={() => setShowPlan(true)}>
-              <Calendar size={15} />
-              Plan échelonné
-            </Button>
-            <Button
-              onClick={() => setShowCreate(true)}
-              className="h-11 rounded-2xl px-5 shadow-[0_12px_24px_hsl(var(--primary)/0.22)]"
-            >
-              <Plus size={15} />
-              Nouveau paiement
-            </Button>
-          </div>
+  <Button
+    variant="outline"
+    className="h-11 rounded-2xl"
+    onClick={() => navigate('/paiements/configurations')}
+  >
+    <Landmark size={15} />
+    Modes de paiement
+  </Button>
+
+  <Button variant="outline" className="h-11 rounded-2xl" onClick={() => setShowPlan(true)}>
+    <Calendar size={15} />
+    Plan échelonné
+  </Button>
+
+  <Button
+    onClick={() => setShowCreate(true)}
+    className="h-11 rounded-2xl px-5 shadow-[0_12px_24px_hsl(var(--primary)/0.22)]"
+  >
+    <Plus size={15} />
+    Nouveau paiement
+  </Button>
+</div>
         </div>
       </section>
 

@@ -8,14 +8,14 @@ import {
   Copy,
   CheckCircle,
   Tag,
-  Calendar,
   AlertTriangle,
   FileText,
   Download,
   Sparkles,
   CreditCard,
-  Smartphone,
-  Landmark,
+  Check,
+  X,
+  Eye,
 } from 'lucide-react';
 import { paymentApi } from '@/Api/paymentApi';
 import { Button } from '@/components/ui/button';
@@ -58,7 +58,7 @@ const METHOD_LABELS = {
 };
 
 function InfoCard({ label, value, full = false }) {
-  if (!value) return null;
+  if (!value && value !== 0) return null;
 
   return (
     <div className={`rounded-2xl border bg-background/60 p-4 ${full ? 'md:col-span-2' : ''}`}>
@@ -77,6 +77,89 @@ function StatMini({ label, value }) {
   );
 }
 
+function ProofStatusBadge({ status }) {
+  const map = {
+    submitted: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20',
+    under_review: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20',
+    approved: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20',
+    rejected: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20',
+  };
+
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${map[status] || 'bg-muted text-muted-foreground border-border'}`}>
+      {status || '—'}
+    </span>
+  );
+}
+
+function ProofReviewModal({ proof, action, loading, onClose, onSubmit }) {
+  const [reviewNote, setReviewNote] = useState('');
+
+  useEffect(() => {
+    setReviewNote('');
+  }, [proof?.id, action]);
+
+  if (!proof || !action) return null;
+
+  const isReject = action === 'rejected';
+  const title = isReject ? 'Rejeter la preuve' : action === 'approved' ? 'Valider la preuve' : 'Mettre en revue';
+  const buttonLabel = isReject ? 'Confirmer le rejet' : action === 'approved' ? 'Confirmer la validation' : 'Confirmer';
+  const buttonClass = isReject ? 'bg-destructive text-white hover:bg-destructive/90' : 'bg-emerald-600 text-white hover:bg-emerald-700';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-lg rounded-[28px] border bg-card p-5 shadow-xl">
+        <div className="mb-4 flex items-center gap-3">
+          <div className={`flex h-10 w-10 items-center justify-center rounded-full ${isReject ? 'bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-300' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300'}`}>
+            {isReject ? <X size={18} /> : <Check size={18} />}
+          </div>
+          <div>
+            <h3 className="text-base font-semibold">{title}</h3>
+            <p className="text-sm text-muted-foreground">
+              Soumise le {readableTimestamp(proof.submitted_at)}
+            </p>
+          </div>
+        </div>
+
+        <div className="mb-4 rounded-2xl border bg-muted/30 p-4">
+          <p className="text-sm font-medium">Preuve #{proof.id?.slice?.(0, 8) || '—'}</p>
+          {proof.note ? (
+            <p className="mt-2 text-sm text-muted-foreground">{proof.note}</p>
+          ) : (
+            <p className="mt-2 text-sm text-muted-foreground">Aucune note client.</p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">
+            {isReject ? 'Motif de rejet *' : 'Commentaire interne (optionnel)'}
+          </label>
+          <textarea
+            value={reviewNote}
+            onChange={(e) => setReviewNote(e.target.value)}
+            placeholder={isReject ? 'Expliquez pourquoi la preuve est rejetée…' : 'Ajoutez une note interne…'}
+            className="min-h-[110px] w-full rounded-2xl border bg-background px-4 py-3 text-sm outline-none ring-0 transition focus:border-primary"
+          />
+        </div>
+
+        <div className="mt-5 flex justify-end gap-3">
+          <Button variant="outline" className="rounded-2xl" onClick={onClose} disabled={loading}>
+            Annuler
+          </Button>
+          <Button
+            className={`rounded-2xl ${buttonClass}`}
+            disabled={loading || (isReject && !reviewNote.trim())}
+            onClick={() => onSubmit(reviewNote)}
+          >
+            {loading ? <Loader2 size={14} className="animate-spin" /> : null}
+            {buttonLabel}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PaymentDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -89,6 +172,10 @@ export default function PaymentDetailPage() {
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState('detail');
   const [syncMsg, setSyncMsg] = useState(null);
+
+  const [reviewTarget, setReviewTarget] = useState(null);
+  const [reviewAction, setReviewAction] = useState(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -137,6 +224,33 @@ export default function PaymentDetailPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const openProofReview = (proof, action) => {
+    setReviewTarget(proof);
+    setReviewAction(action);
+  };
+
+  const closeProofReview = () => {
+    setReviewTarget(null);
+    setReviewAction(null);
+  };
+
+  const submitProofReview = async (reviewNote) => {
+    if (!reviewTarget || !reviewAction) return;
+
+    setReviewLoading(true);
+    try {
+      await paymentApi.reviewProof(reviewTarget.id, {
+        status: reviewAction,
+        reviewNote: reviewNote?.trim() || undefined,
+      });
+      closeProofReview();
+      await load();
+      setActiveTab('proofs');
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-72 items-center justify-center">
@@ -162,6 +276,7 @@ export default function PaymentDetailPage() {
     { key: 'detail', label: 'Détail' },
     { key: 'history', label: `Historique (${payment.history?.length || 0})` },
     ...(payment.installments?.length ? [{ key: 'installments', label: `Échéances (${payment.installments.length})` }] : []),
+    ...(payment.proofs?.length ? [{ key: 'proofs', label: `Preuves (${payment.proofs.length})` }] : []),
     ...(payment.documents?.length ? [{ key: 'documents', label: `Documents (${payment.documents.length})` }] : []),
   ];
 
@@ -277,6 +392,7 @@ export default function PaymentDetailPage() {
                 <InfoCard label="Téléphone" value={payment.client_phone} />
                 <InfoCard label="Terrain" value={payment.terrain_title} />
                 <InfoCard label="Réf. terrain" value={payment.terrain_ref} />
+                <InfoCard label="Statut preuve" value={payment.latest_proof_status || payment.proof_status} />
                 {payment.provider_ref ? (
                   <InfoCard label="Réf. provider" value={<span className="break-all font-mono text-xs">{payment.provider_ref}</span>} />
                 ) : null}
@@ -443,6 +559,141 @@ export default function PaymentDetailPage() {
         </Card>
       ) : null}
 
+      {activeTab === 'proofs' ? (
+        <Card className="overflow-hidden rounded-[30px] border bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--surface-1)))] shadow-sm">
+          <CardHeader className="border-b border-border/60 pb-4">
+            <CardTitle className="text-lg font-semibold tracking-tight">
+              Preuves de paiement client
+            </CardTitle>
+          </CardHeader>
+
+          <CardContent className="space-y-5 p-5">
+            {payment.proofs?.map((proof) => (
+              <div key={proof.id} className="rounded-2xl border bg-background/60 p-4">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold">
+                        Soumise le {readableTimestamp(proof.submitted_at)}
+                      </p>
+                      <ProofStatusBadge status={proof.status} />
+                    </div>
+
+                    {proof.reviewed_at ? (
+                      <p className="text-xs text-muted-foreground">
+                        Revue le {readableTimestamp(proof.reviewed_at)}
+                        {proof.reviewed_by_name ? ` par ${proof.reviewed_by_name}` : ''}
+                      </p>
+                    ) : null}
+
+                    {proof.note ? (
+                      <div className="rounded-xl border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                        {proof.note}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {proof.status !== 'approved' ? (
+                      <Button
+                        size="sm"
+                        className="rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
+                        onClick={() => openProofReview(proof, 'approved')}
+                      >
+                        <Check size={14} />
+                        Valider la preuve
+                      </Button>
+                    ) : null}
+
+                    {proof.status !== 'rejected' ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-xl border-destructive text-destructive hover:bg-destructive/10"
+                        onClick={() => openProofReview(proof, 'rejected')}
+                      >
+                        <X size={14} />
+                        Rejeter la preuve
+                      </Button>
+                    ) : null}
+
+                    {proof.status !== 'under_review' ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-xl"
+                        onClick={() => openProofReview(proof, 'under_review')}
+                      >
+                        <Eye size={14} />
+                        Mettre en revue
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {proof.files?.length ? (
+                  <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {proof.files.map((file) => {
+                      const isImage =
+                        String(file.file_type || file.mime_type || '').startsWith('image/');
+                      const fileUrl = file.file_url || `${BACKEND}${file.url || ''}`;
+
+                      return (
+                        <a
+                          key={file.id}
+                          href={fileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="group overflow-hidden rounded-2xl border bg-card hover:border-primary/40"
+                        >
+                          <div className="aspect-[4/3] bg-muted">
+                            {isImage ? (
+                              <img
+                                src={fileUrl}
+                                alt="Preuve de paiement"
+                                className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                              />
+                            ) : (
+                              <div className="flex h-full items-center justify-center">
+                                <FileText className="h-8 w-8 text-muted-foreground" />
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between gap-3 px-3 py-2">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">
+                                {file.file_type || file.mime_type || 'Fichier'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {readableDate(file.created_at)}
+                              </p>
+                            </div>
+
+                            <div className="flex shrink-0 items-center gap-1 text-xs text-primary">
+                              <ExternalLink size={12} />
+                              Ouvrir
+                            </div>
+                          </div>
+                        </a>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-muted-foreground">Aucun fichier joint.</p>
+                )}
+              </div>
+            ))}
+
+            {!payment.proofs?.length ? (
+              <div className="rounded-2xl border bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
+                Aucune preuve soumise pour ce paiement.
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
       {activeTab === 'documents' ? (
         <Card className="overflow-hidden rounded-[30px] border bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--surface-1)))] shadow-sm">
           <CardHeader className="border-b border-border/60 pb-4">
@@ -516,6 +767,16 @@ export default function PaymentDetailPage() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {reviewTarget && reviewAction ? (
+        <ProofReviewModal
+          proof={reviewTarget}
+          action={reviewAction}
+          loading={reviewLoading}
+          onClose={closeProofReview}
+          onSubmit={submitProofReview}
+        />
       ) : null}
     </div>
   );

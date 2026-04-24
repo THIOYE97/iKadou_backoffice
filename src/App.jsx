@@ -36,6 +36,7 @@ import ParametresCanaux   from '@/pages/Notifications/ParametresCanaux';
 import UtilisateursPage   from '@/pages/Utilisateurs/UtilisateursPage';
 import AgentsPage         from '@/pages/Agents/AgentsPage';
 import AgentDetailPage    from '@/pages/Agents/AgentDetailPage';
+import PaymentMethodConfigsPage from './pages/Paiements/PaymentMethodConfigsPage';
 
 import ZonesPage from './pages/zones/ZonesPage';
 
@@ -83,6 +84,7 @@ export default function App() {
             <Route element={<ProtectedRoute allowedRoles={['admin','super_admin','manager','finance']} />}>
               <Route path="/paiements"       element={<PaiementsPage />} />
               <Route path="/paiements/:id"   element={<PaymentDetailPage />} />
+              <Route path="/paiements/configurations" element={<PaymentMethodConfigsPage />} />
               <Route path="/reporting"       element={<ReportingPage />} />
             </Route>
             

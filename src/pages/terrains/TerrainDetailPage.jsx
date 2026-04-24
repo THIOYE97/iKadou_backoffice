@@ -12,12 +12,21 @@ import {
   Ruler,
   Clock3,
   FileText,
+  ExternalLink,
+  Map,
+  ShieldCheck,
+  Building2,
+  Scale,
+  Phone,
+  BadgeInfo,
+  CheckCircle2,
 } from 'lucide-react';
 import { terrainsApi, zonesApi } from '@/Api/resourceApi';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import StatusBadge from '@/components/ui/StatusBadge';
 import TerrainImageUploader from '@/components/custome/TerrainImageUploader';
+import TerrainDocumentUploader from '@/components/custome/TerrainDocumentUploader';
 import { TERRAIN_STATUS } from '@/Util/statusConfig';
 import { readableDate, readableTimestamp } from '@/Util/readableDate';
 import TerrainFormModal from './TerrainFormModal';
@@ -45,12 +54,33 @@ const safeJsonParse = (value, fallback = []) => {
   }
 };
 
-const resolveImageUrl = (img) => {
-  const raw = img?.url || img?.path || img?.src || img?.image_url || '';
+const resolveDocumentUrl = (raw) => {
   if (!raw) return '';
   if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
   if (raw.startsWith('/')) return `${BACKEND_URL}${raw}`;
   return `${BACKEND_URL}/${raw}`;
+};
+
+const resolveImageUrl = (raw) => {
+  if (!raw) return '';
+
+  const value =
+    typeof raw === 'string'
+      ? raw
+      : raw?.url || raw?.secure_url || raw?.image_url || raw?.path || '';
+
+  if (!value) return '';
+  if (value.startsWith('http://') || value.startsWith('https://')) return value;
+  if (value.startsWith('/')) return `${BACKEND_URL}${value}`;
+  return `${BACKEND_URL}/${value}`;
+};
+
+const isImageMime = (mime = '') => mime.startsWith('image/');
+const isPdfMime = (mime = '') => mime === 'application/pdf';
+
+const normalizeArray = (value) => {
+  if (Array.isArray(value)) return value;
+  return safeJsonParse(value, []);
 };
 
 const normalizeTerrain = (raw) => {
@@ -66,28 +96,29 @@ const normalizeTerrain = (raw) => {
     price: raw?.price ?? 0,
     currency: raw?.currency ?? 'XOF',
     surface_m2: raw?.surface_m2 ?? null,
+    latitude: raw?.latitude ?? null,
+    longitude: raw?.longitude ?? null,
     images,
     history: Array.isArray(raw?.history) ? raw.history : [],
     documents: Array.isArray(raw?.documents) ? raw.documents : [],
+
+    environmentBenefits:
+      raw?.environmentBenefits ??
+      raw?.environment_benefits ??
+      [],
+    trustItems:
+      raw?.trustItems ??
+      raw?.trust_items ??
+      [],
+    agencyName: raw?.agencyName ?? raw?.agency_name ?? null,
+    notaryName: raw?.notaryName ?? raw?.notary_name ?? null,
+    notaryPhone: raw?.notaryPhone ?? raw?.notary_phone ?? null,
+    ninacad: raw?.ninacad ?? null,
   };
 };
 
-const safeArray = (value) => {
-  if (Array.isArray(value)) return value;
-  if (!value) return [];
-  if (typeof value === 'string') {
-    try {
-      const parsed = JSON.parse(value);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
-  return [];
-};
-
 function InfoCard({ icon: Icon, label, value }) {
-  if (!value) return null;
+  if (!value && value !== 0) return null;
 
   return (
     <div className="rounded-2xl border bg-background/60 p-4">
@@ -110,6 +141,43 @@ function StatMini({ label, value }) {
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-2 text-lg font-bold tracking-tight">{value}</p>
     </div>
+  );
+}
+
+function BulletListCard({ title, icon: Icon, items = [], emptyText }) {
+  const normalized = normalizeArray(items);
+
+  return (
+    <Card className="overflow-hidden rounded-[30px] border bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--surface-1)))] shadow-sm">
+      <CardHeader className="border-b border-border/60 pb-4">
+        <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+          <Icon size={18} />
+          {title}
+        </CardTitle>
+      </CardHeader>
+
+      <CardContent className="p-5">
+        {!normalized.length ? (
+          <div className="rounded-[24px] border border-dashed bg-muted/20 px-6 py-8 text-sm text-muted-foreground">
+            {emptyText}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3">
+            {normalized.map((item, index) => (
+              <div
+                key={`${item}_${index}`}
+                className="flex items-start gap-3 rounded-2xl border bg-background/60 p-4"
+              >
+                <div className="mt-0.5 text-primary">
+                  <CheckCircle2 className="h-4 w-4" />
+                </div>
+                <p className="text-sm font-medium leading-6">{item}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -158,9 +226,15 @@ export default function TerrainDetailPage() {
   const mainImage =
     parsedImages.find((i) => i.is_main || i.isMain) || parsedImages[0] || null;
 
+  const hasGeo = terrain.latitude !== null && terrain.longitude !== null;
+  const mapsUrl = hasGeo
+    ? `https://www.google.com/maps?q=${terrain.latitude},${terrain.longitude}`
+    : null;
+
   const tabs = [
     { key: 'info', label: 'Informations' },
     { key: 'images', label: `Photos (${parsedImages.length || 0})` },
+    { key: 'documents', label: `Documents (${terrain.documents?.length || 0})` },
     { key: 'history', label: `Historique (${terrain.history?.length || 0})` },
   ];
 
@@ -188,7 +262,7 @@ export default function TerrainDetailPage() {
                 {terrain.title}
               </h1>
               <p className="mt-2 text-sm text-muted-foreground">
-                Fiche terrain et gestion opérationnelle
+                Fiche terrain, publication et conformité
               </p>
             </div>
           </div>
@@ -220,7 +294,7 @@ export default function TerrainDetailPage() {
       {mainImage?.resolvedUrl ? (
         <section className="relative overflow-hidden rounded-[30px] border bg-muted shadow-sm">
           <img
-            src={resolveImageUrl(mainImage)}
+            src={mainImage.resolvedUrl}
             alt={terrain.title}
             className="h-[320px] w-full object-cover"
           />
@@ -265,6 +339,8 @@ export default function TerrainDetailPage() {
               <InfoCard icon={MapPinned} label="Zone" value={terrain.zone_name} />
               <InfoCard icon={MapPinned} label="Région" value={terrain.zone_region} />
               <InfoCard icon={MapPinned} label="Localisation" value={terrain.location} />
+              <InfoCard icon={MapPinned} label="Latitude" value={terrain.latitude} />
+              <InfoCard icon={MapPinned} label="Longitude" value={terrain.longitude} />
               <InfoCard icon={Clock3} label="Disponibilité" value={terrain.availability} />
               <InfoCard icon={Sparkles} label="Mis en avant" value={terrain.is_featured ? 'Oui' : 'Non'} />
               <InfoCard icon={Wallet} label="Devise" value={terrain.currency} />
@@ -282,6 +358,19 @@ export default function TerrainDetailPage() {
               <StatMini label="Créé le" value={readableDate(terrain.created_at)} />
               <StatMini label="Modifié" value={readableTimestamp(terrain.updated_at)} />
               <StatMini label="Documents liés" value={terrain.documents?.length || 0} />
+
+              {mapsUrl ? (
+                <a
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm hover:bg-muted"
+                >
+                  <Map size={14} />
+                  Voir sur Google Maps
+                  <ExternalLink size={14} />
+                </a>
+              ) : null}
             </CardContent>
           </Card>
 
@@ -299,6 +388,35 @@ export default function TerrainDetailPage() {
               </CardContent>
             </Card>
           ) : null}
+
+          <BulletListCard
+            title="Avantages du terrain et de l’environnement"
+            icon={Sparkles}
+            items={terrain.environmentBenefits}
+            emptyText="Aucun avantage renseigné pour le moment."
+          />
+
+          <BulletListCard
+            title="Éléments de confiance"
+            icon={ShieldCheck}
+            items={terrain.trustItems}
+            emptyText="Aucun élément de confiance renseigné pour le moment."
+          />
+
+          <Card className="overflow-hidden rounded-[30px] border bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--surface-1)))] shadow-sm xl:col-span-3">
+            <CardHeader className="border-b border-border/60 pb-4">
+              <CardTitle className="text-lg font-semibold tracking-tight">
+                Informations commerciales et légales
+              </CardTitle>
+            </CardHeader>
+
+            <CardContent className="grid grid-cols-1 gap-4 p-5 md:grid-cols-2">
+              <InfoCard icon={Building2} label="Agence vendeuse" value={terrain.agencyName} />
+              <InfoCard icon={Scale} label="Nom du notaire" value={terrain.notaryName} />
+              <InfoCard icon={Phone} label="Téléphone du notaire" value={terrain.notaryPhone} />
+              <InfoCard icon={BadgeInfo} label="Numéro NINACAD" value={terrain.ninacad} />
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -328,6 +446,109 @@ export default function TerrainDetailPage() {
             />
           </CardContent>
         </Card>
+      )}
+
+      {activeTab === 'documents' && (
+        <>
+          <Card className="overflow-hidden rounded-[30px] border bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--surface-1)))] shadow-sm">
+            <CardHeader className="border-b border-border/60 pb-4">
+              <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+                <FileText size={18} />
+                Documents terrain
+              </CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Les documents sont stockés sur Cloudinary comme les images, mais sans compression image forcée.
+              </p>
+            </CardHeader>
+
+            <CardContent className="p-5">
+              <TerrainDocumentUploader
+                terrainId={terrain.id}
+                existingDocuments={terrain.documents || []}
+                onDocumentsChange={(docs) =>
+                  setTerrain((t) => ({
+                    ...t,
+                    documents: Array.isArray(docs) ? docs : [],
+                  }))
+                }
+              />
+            </CardContent>
+          </Card>
+
+          <Card className="overflow-hidden rounded-[30px] border bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--surface-1)))] shadow-sm">
+            <CardHeader className="border-b border-border/60 pb-4">
+              <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+                <FileText size={18} />
+                Documents liés
+              </CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Clique sur un fichier pour l’ouvrir.
+              </p>
+            </CardHeader>
+
+            <CardContent className="p-5">
+              {!terrain.documents?.length ? (
+                <div className="rounded-[24px] border border-dashed bg-muted/20 px-6 py-10 text-center">
+                  <p className="text-sm font-medium">Aucun document</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Les fichiers liés au terrain apparaîtront ici.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {terrain.documents.map((doc) => {
+                    const url = resolveDocumentUrl(doc.url);
+
+                    return (
+                      <a
+                        key={doc.id}
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="overflow-hidden rounded-[24px] border bg-background/60 transition hover:-translate-y-0.5 hover:shadow-md"
+                      >
+                        {isImageMime(doc.mime_type) ? (
+                          <div className="aspect-[4/3] overflow-hidden bg-muted">
+                            <img
+                              src={url}
+                              alt={doc.original_name || doc.name}
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div
+                            className={`flex aspect-[4/3] items-center justify-center ${
+                              isPdfMime(doc.mime_type)
+                                ? 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-300'
+                                : 'bg-muted/20 text-muted-foreground'
+                            }`}
+                          >
+                            <div className="text-center">
+                              <FileText className="mx-auto h-8 w-8" />
+                              <p className="mt-2 text-xs font-medium">
+                                {isPdfMime(doc.mime_type) ? 'PDF' : 'Fichier'}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="space-y-2 p-4">
+                          <p className="truncate text-sm font-semibold">{doc.name}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {doc.original_name || '—'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {readableDate(doc.created_at)}
+                          </p>
+                        </div>
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
       )}
 
       {activeTab === 'history' && (
@@ -399,3 +620,17 @@ export default function TerrainDetailPage() {
     </div>
   );
 }
+
+const safeArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};

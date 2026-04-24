@@ -11,6 +11,9 @@ import {
   Filter,
   ArrowUpRight,
   Link2,
+  ExternalLink,
+  Image as ImageIcon,
+  FileImage,
 } from 'lucide-react';
 import api from '@/Api/axiosInstance';
 import DataTable from '@/components/custome/DataTable';
@@ -38,8 +41,27 @@ const MIME_ICONS = {
   'image/jpeg': '🖼️',
   'image/png': '🖼️',
   'image/webp': '🖼️',
+  'image/heic': '🖼️',
+  'image/heif': '🖼️',
   'application/msword': '📝',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '📝',
+};
+
+
+const resolveDocumentUrl = (raw) => {
+  if (!raw) return '';
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  if (raw.startsWith('/')) return `${BACKEND}${raw}`;
+  return `${BACKEND}/${raw}`;
+};
+const isImageMime = (mime = '') => mime.startsWith('image/');
+const isPdfMime = (mime = '') => mime === 'application/pdf';
+
+const formatSize = (bytes) => {
+  if (!bytes && bytes !== 0) return '—';
+  if (bytes < 1024) return `${bytes} o`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
 function UploadModal({ onClose, onSuccess }) {
@@ -198,7 +220,113 @@ function UploadModal({ onClose, onSuccess }) {
   );
 }
 
+function FilePreview({ row }) {
+  const url = resolveDocumentUrl(row.url);
+
+  if (isImageMime(row.mime_type)) {
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className="group block overflow-hidden rounded-2xl border bg-muted/30"
+      >
+        <div className="aspect-[4/3] w-full overflow-hidden bg-muted">
+          <img
+            src={url}
+            alt={row.original_name || row.name}
+            className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+            loading="lazy"
+          />
+        </div>
+      </a>
+    );
+  }
+
+  if (isPdfMime(row.mime_type)) {
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className="flex aspect-[4/3] items-center justify-center rounded-2xl border bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-300"
+      >
+        <div className="text-center">
+          <FileText className="mx-auto h-8 w-8" />
+          <p className="mt-2 text-xs font-medium">PDF</p>
+        </div>
+      </a>
+    );
+  }
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className="flex aspect-[4/3] items-center justify-center rounded-2xl border bg-muted/20"
+    >
+      <div className="text-center">
+        <FileImage className="mx-auto h-8 w-8 text-muted-foreground" />
+        <p className="mt-2 text-xs font-medium text-muted-foreground">Fichier</p>
+      </div>
+    </a>
+  );
+}
+
+function DocumentGridCard({ row }) {
+  const url = resolveDocumentUrl(row.url);
+
+  return (
+    <div className="overflow-hidden rounded-[24px] border bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--surface-1)))] shadow-sm">
+      <FilePreview row={row} />
+
+      <div className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold">{row.name}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {row.original_name || '—'}
+            </p>
+          </div>
+
+          <Badge variant="outline" className="shrink-0 text-xs">
+            {TYPE_LABELS[row.type] || row.type}
+          </Badge>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+          <span className="capitalize">{row.related_type || '—'}</span>
+          <span>{formatSize(row.size_bytes)}</span>
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs text-muted-foreground">{readableDate(row.created_at)}</span>
+
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted"
+          >
+            <ExternalLink size={13} />
+            Ouvrir
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const COLUMNS = [
+  {
+    key: 'preview',
+    label: 'Aperçu',
+    render: (_, row) => <div className="w-24"><FilePreview row={row} /></div>,
+  },
   {
     key: 'name',
     label: 'Document',
@@ -236,12 +364,7 @@ const COLUMNS = [
   {
     key: 'size_bytes',
     label: 'Taille',
-    render: (v) =>
-      v ? (
-        <span className="text-xs text-muted-foreground">{(v / 1024).toFixed(0)} KB</span>
-      ) : (
-        '—'
-      ),
+    render: (v) => <span className="text-xs text-muted-foreground">{formatSize(v)}</span>,
   },
   {
     key: 'uploaded_by_name',
@@ -254,11 +377,13 @@ const COLUMNS = [
     render: (v) => <span className="text-xs text-muted-foreground">{readableDate(v)}</span>,
   },
   {
-    key: 'url',
-    label: '',
-    render: (v) => (
+  key: 'url',
+  label: '',
+  render: (v) => {
+    const url = resolveDocumentUrl(v);
+    return (
       <a
-        href={`${BACKEND}${v}`}
+        href={url}
         target="_blank"
         rel="noreferrer"
         className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
@@ -267,8 +392,9 @@ const COLUMNS = [
         <Download size={12} />
         Ouvrir
       </a>
-    ),
+    );
   },
+},
 ];
 
 function StatCard({ label, value, icon: Icon, tone = 'primary' }) {
@@ -300,6 +426,7 @@ export default function DocumentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showUpload, setShowUpload] = useState(false);
+  const [view, setView] = useState('grid');
   const [filters, setFilters] = useState({
     search: '',
     type: '',
@@ -314,7 +441,7 @@ export default function DocumentsPage() {
     try {
       const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== ''));
       const r = await api.get('/documents', { params });
-      setData(r.data.data);
+      setData(Array.isArray(r.data.data) ? r.data.data : []);
       setMeta(r.data.meta);
     } catch {
       setError('Impossible de charger les documents');
@@ -348,45 +475,45 @@ export default function DocumentsPage() {
             </h1>
 
             <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-             
+              Visualise et ouvre directement les photos, PDF et autres fichiers uploadés.
             </p>
           </div>
 
-          <Button
-            onClick={() => setShowUpload(true)}
-            className="h-11 rounded-2xl px-5 shadow-[0_12px_24px_hsl(var(--primary)/0.22)]"
-          >
-            <Upload size={16} />
-            Ajouter
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant={view === 'grid' ? 'default' : 'outline'}
+              className="rounded-2xl"
+              onClick={() => setView('grid')}
+            >
+              <ImageIcon size={15} />
+              Grille
+            </Button>
+
+            <Button
+              variant={view === 'table' ? 'default' : 'outline'}
+              className="rounded-2xl"
+              onClick={() => setView('table')}
+            >
+              <FileText size={15} />
+              Tableau
+            </Button>
+
+            <Button
+              onClick={() => setShowUpload(true)}
+              className="h-11 rounded-2xl px-5 shadow-[0_12px_24px_hsl(var(--primary)/0.22)]"
+            >
+              <Upload size={16} />
+              Ajouter
+            </Button>
+          </div>
         </div>
       </section>
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Total documents"
-          value={loading ? '...' : meta?.total ?? 0}
-          icon={FolderOpen}
-          tone="primary"
-        />
-        <StatCard
-          label="Page actuelle"
-          value={loading ? '...' : filters.page}
-          icon={ArrowUpRight}
-          tone="violet"
-        />
-        <StatCard
-          label="Par page"
-          value={filters.limit}
-          icon={FileText}
-          tone="orange"
-        />
-        <StatCard
-          label="Filtres actifs"
-          value={hasFilters ? 'Oui' : 'Non'}
-          icon={Link2}
-          tone="emerald"
-        />
+        <StatCard label="Total documents" value={loading ? '...' : meta?.total ?? 0} icon={FolderOpen} tone="primary" />
+        <StatCard label="Page actuelle" value={loading ? '...' : filters.page} icon={ArrowUpRight} tone="violet" />
+        <StatCard label="Par page" value={filters.limit} icon={FileText} tone="orange" />
+        <StatCard label="Filtres actifs" value={hasFilters ? 'Oui' : 'Non'} icon={Link2} tone="emerald" />
       </section>
 
       <section className="rounded-[28px] border bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--surface-1)))] p-4 shadow-sm md:p-5">
@@ -420,9 +547,7 @@ export default function DocumentsPage() {
           >
             <option value="">Tous les types</option>
             {Object.entries(TYPE_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
+              <option key={k} value={k}>{v}</option>
             ))}
           </select>
 
@@ -466,7 +591,26 @@ export default function DocumentsPage() {
           </div>
         ) : null}
 
-        <DataTable columns={COLUMNS} data={data} loading={loading} error={null} />
+        {view === 'table' ? (
+          <DataTable columns={COLUMNS} data={data} loading={loading} error={null} />
+        ) : loading ? (
+          <div className="flex h-40 items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : !data.length ? (
+          <div className="rounded-[24px] border border-dashed bg-muted/20 px-6 py-10 text-center">
+            <p className="text-sm font-medium">Aucun document</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Les fichiers uploadés apparaîtront ici.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {data.map((row) => (
+              <DocumentGridCard key={row.id} row={row} />
+            ))}
+          </div>
+        )}
       </section>
 
       <div className="rounded-[24px] border bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--surface-1)))] p-4 shadow-sm">

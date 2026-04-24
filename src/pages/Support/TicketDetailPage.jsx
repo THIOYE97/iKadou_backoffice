@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -7,10 +7,9 @@ import {
   Save,
   Sparkles,
   MessageSquare,
-  User2,
-  Clock3,
-  ShieldAlert,
-  Tag,
+  Paperclip,
+  ImagePlus,
+  X,
 } from 'lucide-react';
 import { ticketsApi } from '@/Api/resourceApi';
 import { Button } from '@/components/ui/button';
@@ -30,12 +29,59 @@ function Info({ label, value }) {
   );
 }
 
-function StatMini({ label, value }) {
+function normalizeTicketDetailResponse(res) {
+  const candidates = [
+    res,
+    res?.data,
+    res?.data?.data,
+    res?.raw,
+    res?.raw?.data,
+    res?.raw?.data?.data,
+  ].filter(Boolean);
+
+  const payload =
+    candidates.find(
+      (item) =>
+        item &&
+        typeof item === 'object' &&
+        (
+          Array.isArray(item.messages) ||
+          Array.isArray(item.history) ||
+          Array.isArray(item.attachments) ||
+          item.subject ||
+          item.ref ||
+          item.id
+        )
+    ) || null;
+
+  if (!payload || typeof payload !== 'object') return null;
+
+  return {
+    ...payload,
+    messages: Array.isArray(payload.messages) ? payload.messages : [],
+    attachments: Array.isArray(payload.attachments) ? payload.attachments : [],
+    history: Array.isArray(payload.history) ? payload.history : [],
+  };
+}
+
+function buildAttachmentsMap(attachments) {
+  const safeAttachments = Array.isArray(attachments) ? attachments : [];
+
+  return safeAttachments.reduce((acc, item) => {
+    const key = item?.message_id;
+    if (!key) return acc;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(item);
+    return acc;
+  }, {});
+}
+
+function getMessageText(message) {
   return (
-    <div className="rounded-2xl border bg-background/60 p-4">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-2 text-lg font-bold tracking-tight">{value}</p>
-    </div>
+    message?.content ??
+    message?.message ??
+    message?.text ??
+    ''
   );
 }
 
@@ -55,15 +101,21 @@ export default function TicketDetailPage() {
   const [status, setStatus] = useState('');
   const [statusComment, setStatusComment] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
+  const [files, setFiles] = useState([]);
 
   const loadTicket = useCallback(async () => {
     try {
       const res = await ticketsApi.get(id);
-      const data = res?.data || null;
+      const data = normalizeTicketDetailResponse(res);
+
+      console.log('BACKOFFICE TICKET DETAIL RAW =', res);
+      console.log('BACKOFFICE TICKET DETAIL NORMALIZED =', data);
+
       setTicket(data);
       setStatus(data?.status || '');
       setAssignedTo(data?.assigned_to || '');
-    } catch {
+    } catch (error) {
+      console.log('BACKOFFICE LOAD TICKET ERROR =', error);
       setTicket(null);
     }
   }, [id]);
@@ -71,7 +123,12 @@ export default function TicketDetailPage() {
   const loadAssignableUsers = useCallback(async () => {
     try {
       const res = await ticketsApi.listAssignableSupportUsers();
-      setSupportUsers(res?.data || []);
+      const users = Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res)
+        ? res
+        : [];
+      setSupportUsers(users);
     } catch {
       setSupportUsers([]);
     }
@@ -90,16 +147,75 @@ export default function TicketDetailPage() {
     init();
   }, [loadTicket, loadAssignableUsers]);
 
+  const attachmentsByMessageId = useMemo(
+    () => buildAttachmentsMap(ticket?.attachments),
+    [ticket?.attachments]
+  );
+
+  const handlePickFiles = (e) => {
+    const selected = Array.from(e.target.files || []);
+    if (!selected.length) return;
+
+    const mapped = selected.map((file) => ({
+      file,
+      id: `${file.name}-${file.size}-${Date.now()}-${Math.random()}`,
+      preview: file.type?.startsWith('image/') ? URL.createObjectURL(file) : null,
+    }));
+
+    setFiles((prev) => [...prev, ...mapped].slice(0, 5));
+    e.target.value = '';
+  };
+
+  const removeFile = (fileId) => {
+    setFiles((prev) => {
+      const target = prev.find((item) => item.id === fileId);
+      if (target?.preview) URL.revokeObjectURL(target.preview);
+      return prev.filter((item) => item.id !== fileId);
+    });
+  };
+
+  const resetComposer = () => {
+    files.forEach((item) => {
+      if (item.preview) URL.revokeObjectURL(item.preview);
+    });
+    setFiles([]);
+    setMessage('');
+    setIsInternal(false);
+  };
+
   const handleSendMessage = async () => {
-    if (!message.trim()) return;
+    const trimmed = message.trim();
+    const hasMessage = !!trimmed;
+    const hasFiles = files.length > 0;
+
+    if (!hasMessage && !hasFiles) return;
+
     setSending(true);
     try {
-      await ticketsApi.addMessage(id, {
-        content: message.trim(),
-        isInternal,
-      });
-      setMessage('');
-      setIsInternal(false);
+      let createdMessage = null;
+      const effectiveMessage = hasMessage ? trimmed : hasFiles ? 'Image jointe' : '';
+
+      if (effectiveMessage) {
+        const res = await ticketsApi.addMessage(id, {
+          content: effectiveMessage,
+          isInternal,
+        });
+
+        createdMessage =
+          res?.data?.data ??
+          res?.data ??
+          res ??
+          null;
+      }
+
+      if (hasFiles) {
+        await ticketsApi.uploadAttachments(id, {
+          files: files.map((item) => item.file),
+          messageId: createdMessage?.id || null,
+        });
+      }
+
+      resetComposer();
       await loadTicket();
     } finally {
       setSending(false);
@@ -207,20 +323,73 @@ export default function TicketDetailPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {ticket.messages.map((m) => (
-                  <div key={m.id} className="rounded-2xl border bg-background/60 p-4">
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold">{m.author || 'Utilisateur'}</p>
-                        {m.is_internal ? <Badge variant="outline">Interne</Badge> : null}
+                {ticket.messages.map((m) => {
+                  const linkedAttachments = attachmentsByMessageId[m.id] || [];
+                  const messageText = getMessageText(m);
+
+                  return (
+                    <div key={m.id} className="rounded-2xl border bg-background/60 p-4">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold">
+                            {m.author || m.author_name || 'Utilisateur'}
+                          </p>
+                          {m.is_internal ? <Badge variant="outline">Interne</Badge> : null}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {readableTimestamp(m.created_at)}
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {readableTimestamp(m.created_at)}
-                      </p>
+
+                      {!!messageText ? (
+                        <p className="whitespace-pre-wrap text-sm leading-6">
+                          {messageText}
+                        </p>
+                      ) : null}
+
+                      {linkedAttachments.length > 0 ? (
+                        <div className="mt-3 flex flex-wrap gap-3">
+                          {linkedAttachments.map((file) => {
+                            const isImage =
+                              String(file?.file_type || '').includes('image') ||
+                              /\.(jpg|jpeg|png|webp|heic)$/i.test(file?.file_url || '');
+
+                            if (isImage) {
+                              return (
+                                <a
+                                  key={file.id}
+                                  href={file.file_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="block overflow-hidden rounded-2xl border bg-muted/20"
+                                >
+                                  <img
+                                    src={file.file_url}
+                                    alt="Pièce jointe"
+                                    className="h-40 w-40 object-cover"
+                                  />
+                                </a>
+                              );
+                            }
+
+                            return (
+                              <a
+                                key={file.id}
+                                href={file.file_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm"
+                              >
+                                <Paperclip className="h-4 w-4" />
+                                Pièce jointe
+                              </a>
+                            );
+                          })}
+                        </div>
+                      ) : null}
                     </div>
-                    <p className="whitespace-pre-wrap text-sm leading-6">{m.content}</p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -232,19 +401,72 @@ export default function TicketDetailPage() {
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                 />
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={isInternal}
-                    onChange={(e) => setIsInternal(e.target.checked)}
-                  />
-                  Message interne
-                </label>
-                <div className="flex justify-end">
-                  <Button className="rounded-2xl" onClick={handleSendMessage} disabled={sending || !message.trim()}>
-                    {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                    Envoyer
-                  </Button>
+
+                {files.length > 0 ? (
+                  <div className="flex flex-wrap gap-3">
+                    {files.map((item) => (
+                      <div
+                        key={item.id}
+                        className="relative overflow-hidden rounded-2xl border bg-background"
+                      >
+                        {item.preview ? (
+                          <img
+                            src={item.preview}
+                            alt={item.file.name}
+                            className="h-24 w-24 object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-24 w-24 items-center justify-center px-2 text-center text-xs text-muted-foreground">
+                            {item.file.name}
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => removeFile(item.id)}
+                          className="absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-medium">
+                      <ImagePlus className="h-4 w-4" />
+                      Ajouter des images
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={handlePickFiles}
+                      />
+                    </label>
+
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={isInternal}
+                        onChange={(e) => setIsInternal(e.target.checked)}
+                      />
+                      Message interne
+                    </label>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button
+                      className="rounded-2xl"
+                      onClick={handleSendMessage}
+                      disabled={sending || (!message.trim() && files.length === 0)}
+                    >
+                      {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                      Envoyer
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>

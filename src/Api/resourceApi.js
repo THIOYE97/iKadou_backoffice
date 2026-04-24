@@ -33,6 +33,34 @@ export const terrainsApi = {
   create: (data) => api.post('/terrains', data).then(r => r.data),
   update: (id, data) => api.patch(`/terrains/${id}`, data).then(r => r.data),
   updateStatus: (id, data) => api.patch(`/terrains/${id}/status`, data).then(r => r.data),
+
+  uploadImages: (id, formData) =>
+    api.post(`/terrains/${id}/images`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data),
+
+  listImages: (id) =>
+    api.get(`/terrains/${id}/images`).then(r => r.data),
+
+  reorderImages: (id, orderedUrls) =>
+    api.patch(`/terrains/${id}/images/reorder`, { orderedUrls }).then(r => r.data),
+
+  deleteImage: (id, storageKey) =>
+    api.delete(`/terrains/${id}/images`, { data: { storageKey } }).then(r => r.data),
+
+  setMainImage: (id, storageKey) =>
+    api.patch(`/terrains/${id}/images/main`, { storageKey }).then(r => r.data),
+
+  uploadDocuments: (id, formData) =>
+    api.post(`/terrains/${id}/documents`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data),
+
+  listDocuments: (id) =>
+    api.get(`/terrains/${id}/documents`).then(r => r.data),
+
+  deleteDocument: (id, documentId) =>
+    api.delete(`/terrains/${id}/documents/${documentId}`).then(r => r.data),
 };
 
 // ─── ZONES ────────────────────────────────────────────────
@@ -75,6 +103,22 @@ export const ticketsApi = {
   updateStatus: (id, data) => api.patch(`/tickets/${id}/status`, data).then(r => r.data),
   assign: (id, assignedTo) => api.patch(`/tickets/${id}/assign`, { assignedTo }).then(r => r.data),
   addMessage: (id, data) => api.post(`/tickets/${id}/messages`, data).then(r => r.data),
+
+  uploadAttachments: (id, { files = [], messageId = null }) => {
+    const formData = new FormData();
+
+    if (messageId) {
+      formData.append('messageId', messageId);
+    }
+
+    files.forEach((file) => {
+      formData.append('files', file);
+    });
+
+    return api.post(`/tickets/${id}/attachments`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data);
+  },
 
   listAssignableSupportUsers: () =>
     api.get('/tickets/assignable-support-users').then(r => r.data),

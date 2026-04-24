@@ -9,6 +9,8 @@ import {
   Filter,
   ArrowUpRight,
   Wallet,
+  ShieldCheck,
+  Building2,
 } from 'lucide-react';
 import { terrainsApi, zonesApi } from '@/Api/resourceApi';
 import DataTable from '@/components/custome/DataTable';
@@ -53,6 +55,11 @@ const COLUMNS = [
   {
     key: 'zone_name',
     label: 'Zone',
+    render: (v) => <span className="text-xs text-muted-foreground">{v || '—'}</span>,
+  },
+  {
+    key: 'agency_name',
+    label: 'Agence',
     render: (v) => <span className="text-xs text-muted-foreground">{v || '—'}</span>,
   },
   {
@@ -154,7 +161,8 @@ export default function TerrainsPage() {
             </h1>
 
             <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-              
+              Gérez vos terrains, enrichissez leurs garanties, leurs avantages
+              d’environnement et leurs informations légales pour une publication complète.
             </p>
           </div>
 
